@@ -1,3 +1,11 @@
+
+Clawdbot (Moltbot) is a multi-functional agent. The chat demonstration below is only the most basic functionality.
+<img width="1324" height="1000" alt="image" src="https://github.com/user-attachments/assets/00b0f347-be84-4fe0-94f2-456679d84f45" />
+<img width="1687" height="1043" alt="PixPin_2026-01-29_16-09-58" src="https://github.com/user-attachments/assets/998a1d42-9566-4d20-8467-39dd1752a035" />
+<img width="1380" height="710" alt="image" src="https://github.com/user-attachments/assets/9900b779-732a-4b3e-88a1-b10fe7d555c0" />
+
+
+
 # Moltbot QQ Plugin (OneBot v11)
 
 This plugin adds QQ channel support to [Moltbot](https://github.com/moltbot/moltbot) using the OneBot v11 protocol (via WebSocket).
