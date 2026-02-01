@@ -5,7 +5,7 @@ import {
   DEFAULT_ACCOUNT_ID,
   normalizeAccountId,
   type ReplyPayload,
-} from "clawdbot/plugin-sdk";
+} from "openclaw/plugin-sdk";
 import { OneBotClient } from "./client.js";
 import { QQConfigSchema, type QQConfig } from "./config.js";
 import { getQQRuntime } from "./runtime.js";
