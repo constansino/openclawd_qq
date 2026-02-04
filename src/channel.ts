@@ -50,31 +50,68 @@ function hasReplySegment(message: OneBotMessage | string | undefined): boolean {
 /**
  * Clean CQ codes from message text
  * Removes [CQ:xxx,...] format and normalizes whitespace
+ * Preserves image URLs by extracting them from [CQ:image,url=...] format
  */
 function cleanCQCodes(text: string | undefined): string {
   if (!text) return "";
-  return text
-    .replace(/\[CQ:[^\]]+\]/g, "")  // Remove CQ codes
-    .replace(/\s+/g, " ")            // Normalize whitespace
-    .trim();
+  
+  // Extract image URLs from CQ:image codes and replace with a placeholder
+  let result = text;
+  const imageUrls: string[] = [];
+  
+  // Match [CQ:image,...url=xxx...] and extract URL
+  const imageRegex = /\[CQ:image,[^\]]*url=([^,\]]+)[^\]]*\]/g;
+  let match;
+  while ((match = imageRegex.exec(text)) !== null) {
+    const url = match[1].replace(/&amp;/g, "&");  // Decode HTML entities
+    imageUrls.push(url);
+  }
+  
+  // Replace all CQ codes
+  result = result.replace(/\[CQ:[^\]]+\]/g, (match) => {
+    // If it's an image with URL, return placeholder
+    if (match.startsWith("[CQ:image") && match.includes("url=")) {
+      return "[图片]";
+    }
+    // Otherwise remove it
+    return "";
+  });
+  
+  result = result.replace(/\s+/g, " ").trim();
+  
+  // Append image URLs at the end if any were found
+  if (imageUrls.length > 0) {
+    result = result ? `${result} [图片: ${imageUrls.join(", ")}]` : `[图片: ${imageUrls.join(", ")}]`;
+  }
+  
+  return result;
 }
 
 /**
- * Get reply message ID from message segments
+ * Get reply message ID from message segments or raw message string
  * Returns string to avoid type conversion issues
  */
-function getReplyMessageId(message: OneBotMessage | string | undefined): string | null {
-  if (!message || typeof message === "string") return null;
-  
-  for (const segment of message) {
-    if (segment.type === "reply" && segment.data?.id) {
-      const id = String(segment.data.id).trim();
-      // Validate: must be numeric string (not NaN or empty)
-      if (id && /^-?\d+$/.test(id)) {
-        return id;
+function getReplyMessageId(message: OneBotMessage | string | undefined, rawMessage?: string): string | null {
+  // First try to get from parsed message array
+  if (message && typeof message !== "string") {
+    for (const segment of message) {
+      if (segment.type === "reply" && segment.data?.id) {
+        const id = String(segment.data.id).trim();
+        if (id && /^-?\d+$/.test(id)) {
+          return id;
+        }
       }
     }
   }
+  
+  // Fallback: parse from raw_message CQ code
+  if (rawMessage) {
+    const match = rawMessage.match(/\[CQ:reply,id=(\d+)\]/);
+    if (match) {
+      return match[1];
+    }
+  }
+  
   return null;
 }
 
@@ -193,12 +230,14 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             
             // Check requireMention for group chats
             let repliedMsg: any = null;
-            const replyMsgId = getReplyMessageId(event.message);
+            const replyMsgId = getReplyMessageId(event.message, text);
             
             // Pre-fetch replied message if exists (for mention check, images, and reply context)
             if (replyMsgId) {
                 try {
+                    console.log("[QQ Debug] Fetching replied message, ID:", replyMsgId);
                     repliedMsg = await client.getMsg(replyMsgId);
+                    console.log("[QQ Debug] Got replied message:", JSON.stringify(repliedMsg, null, 2));
                 } catch (err) {
                     console.log("[QQ] Failed to get replied message:", err);
                 }
@@ -286,34 +325,29 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             });
 
             // Build reply context if message is a reply
-            const replyContext: {
-                ReplyToMessageId?: string;
-                ReplyToBody?: string;
-                ReplyToSenderId?: string;
-                ReplyToSenderName?: string;
-            } = {};
-            
-            if (replyMsgId) {
-                replyContext.ReplyToMessageId = replyMsgId;
-                if (repliedMsg) {
-                    const rawBody = typeof repliedMsg.message === 'string'
-                        ? repliedMsg.message
-                        : repliedMsg.raw_message || '';
-                    replyContext.ReplyToBody = cleanCQCodes(rawBody);
-                    replyContext.ReplyToSenderId = String(repliedMsg.sender?.user_id || '');
-                    replyContext.ReplyToSenderName = repliedMsg.sender?.nickname || repliedMsg.sender?.card || '';
-                } else {
-                    // Failed to fetch replied message
-                    replyContext.ReplyToBody = "[无法获取被引用的消息]";
-                }
+            let replyToBody: string | null = null;
+            let replyToSender: string | null = null;
+            if (replyMsgId && repliedMsg) {
+                const rawBody = typeof repliedMsg.message === 'string'
+                    ? repliedMsg.message
+                    : repliedMsg.raw_message || '';
+                replyToBody = cleanCQCodes(rawBody);
+                replyToSender = repliedMsg.sender?.nickname || repliedMsg.sender?.card || String(repliedMsg.sender?.user_id || '');
+                console.log("[QQ Debug] Reply fetched:", { replyToSender, replyToBody: replyToBody.slice(0, 100) });
             }
+
+            // Build body with reply context inline (like Telegram)
+            const replySuffix = replyToBody
+                ? `\n\n[Replying to ${replyToSender || "unknown"}]\n${replyToBody}\n[/Replying]`
+                : "";
+            const bodyWithReply = cleanCQCodes(text) + replySuffix;
 
             const ctxPayload = runtime.channel.reply.finalizeInboundContext({
                 Provider: "qq",
                 Channel: "qq",
                 From: fromId,
                 To: "qq:bot", 
-                Body: text,
+                Body: bodyWithReply,
                 RawBody: text,
                 SenderId: String(userId),
                 SenderName: senderName,
@@ -326,7 +360,9 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 OriginatingTo: fromId,
                 CommandAuthorized: true,
                 ...(mediaUrls.length > 0 && { MediaUrls: mediaUrls }),
-                ...replyContext
+                ...(replyMsgId && { ReplyToId: replyMsgId }),
+                ...(replyToBody && { ReplyToBody: replyToBody }),
+                ...(replyToSender && { ReplyToSender: replyToSender }),
             });
             
             await runtime.channel.session.recordInboundSession({
