@@ -1,3 +1,4 @@
+
 OpenClawd 是一个多功能代理。下面的聊天演示仅展示了最基础的功能。
 <img width="1324" height="1000" alt="image" src="https://github.com/user-attachments/assets/00b0f347-be84-4fe0-94f2-456679d84f45" />
 <img width="1687" height="1043" alt="PixPin_2026-01-29_16-09-58" src="https://github.com/user-attachments/assets/998a1d42-9566-4d20-8467-39dd1752a035" />
@@ -5,12 +6,12 @@ OpenClawd 是一个多功能代理。下面的聊天演示仅展示了最基础�
 
 # OpenClaw QQ 插件 (OneBot v11)
 
-本插件通过 OneBot v11 协议（WebSocket）为 [OpenClaw](https://github.com/openclaw/openclaw) 添加 QQ 频道支持。具备生产级别的稳定性和丰富的功能特性。
+本插件通过 OneBot v11 协议（WebSocket）为 [OpenClaw](https://github.com/openclaw/openclaw) 添加 QQ 频道支持。具备生产级别的稳定性和丰富的功能特性，完全符合 OpenClaw 官方插件标准。
 
 ## ✨ 功能特性
 
 ### 🧠 智能对话与上下文
-*   **历史回溯**：自动获取最近消息（数量可调）作为 Context 喂给 AI，理解对话前文。
+*   **历史回溯**：群聊自动获取最近 5 条历史消息，帮助 AI 理解前文。
 *   **转发识别**：支持解析“合并转发”的聊天记录，AI 可以“读懂”转发的内容。
 *   **系统提示词**：支持注入自定义 System Prompt 增强角色扮演。
 *   **关键词触发**：支持配置关键词触发，无需 @ 即可唤醒 AI。
@@ -27,7 +28,7 @@ OpenClawd 是一个多功能代理。下面的聊天演示仅展示了最基础�
 *   **自动 @回复**：群聊回复自动 @原发送者（仅分片首条），符合社交习惯。
 *   **@昵称解析**：将消息中的 `[CQ:at]` 转换为真实昵称，让 AI 回复更拟人。
 *   **语音输出 (TTS)**：可选开启 TTS，将 AI 的简短文字回复转换为语音发送（实验性）。
-*   **多媒体感知**：全面支持图片、语音（含 STT 转文字）、视频、卡片消息。
+*   **多媒体感知**：全面支持图片（含 Base64 自动转换）、语音（含 STT 转文字）、视频、卡片消息。
 
 ### 🎨 格式与分片
 *   **Markdown 优化**：自动将 Markdown 表格、列表转换为易读的 ASCII 排版。
@@ -40,20 +41,30 @@ OpenClawd 是一个多功能代理。下面的聊天演示仅展示了最基础�
 你需要一个运行中的 OneBot v11 服务端（推荐 NapCat 或 Lagrange）。
 **重要**：请确保 OneBot 配置中的 `message_post_format` 设置为 `array`。
 
-## 🚀 安装步骤
-1. **进入扩展目录**：`cd openclaw/extensions`
-2. **克隆此插件**：`git clone https://github.com/constansino/openclaw_qq.git qq`
-3. **安装依赖并编译**：回到根目录执行 `pnpm install && pnpm build`
-4. **重启 OpenClaw**。
+## 🚀 安装与配置
 
-## ⚙️ 配置向导
-在插件目录下运行：
+### 1. 安装插件
 ```bash
-node bin/onboard.js
+cd openclaw/extensions
+git clone https://github.com/constansino/openclaw_qq.git qq
+cd ../..
+pnpm install && pnpm build
 ```
-按照提示输入即可生成配置文件。
 
-## ⚙️ 配置文件示例 (`openclaw.json`)
+### 2. 标准化配置 (推荐)
+使用 OpenClaw 标准 CLI 命令进行交互式配置：
+```bash
+openclaw setup qq
+```
+按提示输入 WebSocket 地址（如 `ws://localhost:3001`）和 Token 即可。
+
+### 3. 运行与监控
+启动 OpenClaw 后，你可以使用以下标准命令：
+*   **检查状态**：`openclaw status` (查看 Bot 在线状态、延迟)
+*   **列出群组**：`openclaw list-groups --channel qq`
+*   **发送消息**：`openclaw send qq <群号> "你好"`
+
+### (备选) 手动配置 (`openclaw.json`)
 ```json
 {
   "channels": {
@@ -87,3 +98,4 @@ node bin/onboard.js
 ## 🛠 常见问题排除
 - **指令无效**：请确保发送者在 `admins` 列表中。
 - **获取历史失败**：部分 OneBot 服务端可能未开启历史记录接口。
+- **本地图片发送失败**：插件会自动尝试将本地 `file://` 路径转换为 Base64 发送，确保 OneBot 能接收。
