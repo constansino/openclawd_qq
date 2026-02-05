@@ -1,14 +1,13 @@
-
-Clawdbot (Moltbot) is a multi-functional agent. The chat demonstration below is only the most basic functionality.
+OpenClawd is a multi-functional agent. The chat demonstration below is only the most basic functionality.
 <img width="1324" height="1000" alt="image" src="https://github.com/user-attachments/assets/00b0f347-be84-4fe0-94f2-456679d84f45" />
 <img width="1687" height="1043" alt="PixPin_2026-01-29_16-09-58" src="https://github.com/user-attachments/assets/998a1d42-9566-4d20-8467-39dd1752a035" />
 <img width="1380" height="710" alt="image" src="https://github.com/user-attachments/assets/9900b779-732a-4b3e-88a1-b10fe7d555c0" />
 
 
 
-# Moltbot QQ Plugin (OneBot v11)
+# OpenClawd QQ Plugin (OneBot v11)
 
-This plugin adds QQ channel support to [Moltbot](https://github.com/moltbot/moltbot) using the OneBot v11 protocol (via WebSocket).
+This plugin adds QQ channel support to [OpenClawd](https://github.com/openclawd/openclawd) using the OneBot v11 protocol (via WebSocket).
 
 ---
 
@@ -25,40 +24,40 @@ Ensure the **WebSocket Server** is enabled in your OneBot settings (usually on p
 ## 🚀 Installation
 
 ### Method A: Source / Official Installation
-If you installed Moltbot by cloning the repository:
+If you installed OpenClawd by cloning the repository:
 
 1. **Navigate to extensions folder**:
    ```bash
-   cd moltbot/extensions
+   cd openclawd/extensions
    ```
 2. **Clone this plugin**:
    ```bash
-   git clone https://github.com/constansino/moltbot_qq.git qq
+   git clone https://github.com/constansino/openclawd_qq.git qq
    ```
 3. **Install dependencies & Build**:
-   Go back to the moltbot root directory:
+   Go back to the openclawd root directory:
    ```bash
    cd ..
    pnpm install
    pnpm build
    ```
-4. **Restart Moltbot**.
+4. **Restart OpenClawd**.
 
 ### Method B: Docker Installation (Custom Build)
-If you are running Moltbot via Docker and building from source:
+If you are running OpenClawd via Docker and building from source:
 
-1. Place the `moltbot_qq` files into your `extensions/qq` folder within your build context.
+1. Place the `openclawd_qq` files into your `extensions/qq` folder within your build context.
 2. **Rebuild the image**:
    ```bash
-   docker compose build clawdbot-gateway
+   docker compose build openclawd-gateway
    ```
 3. **Restart the container**:
    ```bash
-   docker compose up -d clawdbot-gateway
+   docker compose up -d openclawd-gateway
    ```
 
 ## ⚙️ Configuration
-Edit your `clawdbot.json` (usually in `~/.clawdbot/clawdbot.json`):
+Edit your `openclawd.json` (usually in `~/.openclawd/openclawd.json`):
 
 ```json
 {
@@ -79,7 +78,7 @@ Edit your `clawdbot.json` (usually in `~/.clawdbot/clawdbot.json`):
 ```
 
 ## 🛠 Troubleshooting
-- **502 Gateway Error**: Usually means Moltbot crashed. Check logs: `docker logs -f clawdbot-gateway`.
+- **502 Gateway Error**: Usually means OpenClawd crashed. Check logs: `docker logs -f openclawd-gateway`.
 - **Session Locked**: If the bot crashes, delete `.lock` files in your config directory: `find . -name "*.lock" -delete`.
 
 </details>
@@ -99,40 +98,40 @@ Edit your `clawdbot.json` (usually in `~/.clawdbot/clawdbot.json`):
 ## 🚀 安装步骤
 
 ### 方案 A：源码 / 官方安装版
-如果你是通过克隆仓库安装的 Moltbot：
+如果你是通过克隆仓库安装的 OpenClawd：
 
 1. **进入扩展目录**：
    ```bash
-   cd moltbot/extensions
+   cd openclawd/extensions
    ```
 2. **克隆此插件**：
    ```bash
-   git clone https://github.com/constansino/moltbot_qq.git qq
+   git clone https://github.com/constansino/openclawd_qq.git qq
    ```
 3. **安装依赖并编译**：
-   回到 Moltbot 根目录执行：
+   回到 OpenClawd 根目录执行：
    ```bash
    cd ..
    pnpm install
    pnpm build
    ```
-4. **重启 Moltbot**。
+4. **重启 OpenClawd**。
 
 ### 方案 B：Docker 安装（自定义构建）
 如果你使用 Docker 且通过 `docker-compose.yml` 中的 `build` 指令运行：
 
-1. 将 `moltbot_qq` 的文件放入构建上下文中的 `extensions/qq` 目录。
+1. 将 `openclawd_qq` 的文件放入构建上下文中的 `extensions/qq` 目录。
 2. **重新构建镜像**：
    ```bash
-   docker compose build clawdbot-gateway
+   docker compose build openclawd-gateway
    ```
 3. **重新启动容器**：
    ```bash
-   docker compose up -d clawdbot-gateway
+   docker compose up -d openclawd-gateway
    ```
 
 ## ⚙️ 配置方法
-编辑您的 `clawdbot.json` 配置文件（通常位于 `~/.clawdbot/clawdbot.json`）：
+编辑您的 `openclawd.json` 配置文件（通常位于 `~/.openclawd/openclawd.json`）：
 
 ```json
 {
@@ -153,7 +152,7 @@ Edit your `clawdbot.json` (usually in `~/.clawdbot/clawdbot.json`):
 ```
 
 ## 🛠 常见问题排除
-- **502 Gateway Error**：通常表示 Moltbot 崩溃了。请检查日志：`docker logs -f clawdbot-gateway`。
+- **502 Gateway Error**：通常表示 OpenClawd 崩溃了。请检查日志：`docker logs -f openclawd-gateway`。
 - **Session Locked (会话锁死)**：如果机器人非正常退出，请删除配置目录下的锁文件：`find . -name "*.lock" -delete`。
 
 </details>

@@ -1,8 +1,8 @@
 {
-  "name": "@clawdbot/qq",
+  "name": "@openclawd/qq",
   "version": "1.0.0",
   "type": "module",
-  "description": "Clawdbot QQ channel plugin via OneBot v11",
+  "description": "OpenClawd QQ channel plugin via OneBot v11",
   "openclaw": {
     "extensions": [
       "./index.ts"
