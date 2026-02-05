@@ -75,6 +75,22 @@ export class OneBotClient extends EventEmitter {
     this.send("send_group_msg", { group_id: groupId, message });
   }
 
+  deleteMsg(messageId: number | string) {
+    this.send("delete_msg", { message_id: messageId });
+  }
+
+  setGroupAddRequest(flag: string, subType: string, approve: boolean = true, reason: string = "") {
+    this.send("set_group_add_request", { flag, sub_type: subType, approve, reason });
+  }
+
+  setFriendAddRequest(flag: string, approve: boolean = true, remark: string = "") {
+    this.send("set_friend_add_request", { flag, approve, remark });
+  }
+
+  async getLoginInfo(): Promise<any> {
+    return this.sendWithResponse("get_login_info", {});
+  }
+
   async getMsg(messageId: number | string): Promise<any> {
     return this.sendWithResponse("get_msg", { message_id: messageId });
   }

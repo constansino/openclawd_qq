@@ -8,6 +8,10 @@ export const QQConfigSchema = z.object({
   systemPrompt: z.string().optional().describe("Custom system prompt to inject into the context"),
   enableDeduplication: z.boolean().optional().default(true).describe("Enable message deduplication to prevent double replies"),
   enableErrorNotify: z.boolean().optional().default(true).describe("Notify admins or users when errors occur"),
+  autoApproveRequests: z.boolean().optional().default(false).describe("Automatically approve friend/group add requests"),
+  maxMessageLength: z.number().optional().default(4000).describe("Maximum length of a single message before splitting"),
+  formatMarkdown: z.boolean().optional().default(false).describe("Format markdown to plain text for better readability"),
+  antiRiskMode: z.boolean().optional().default(false).describe("Enable anti-risk processing (e.g. modify URLs)"),
 });
 
 export type QQConfig = z.infer<typeof QQConfigSchema>;

@@ -138,6 +138,33 @@ function isImageFile(url: string): boolean {
     return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp');
 }
 
+function splitMessage(text: string, limit: number): string[] {
+    if (text.length <= limit) return [text];
+    const chunks = [];
+    let current = text;
+    while (current.length > 0) {
+        // Simple split, could be improved to respect word boundaries
+        chunks.push(current.slice(0, limit));
+        current = current.slice(limit);
+    }
+    return chunks;
+}
+
+function stripMarkdown(text: string): string {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, "$1") // Bold
+        .replace(/\*(.*?)\*/g, "$1")     // Italic
+        .replace(/`(.*?)`/g, "$1")       // Inline code
+        .replace(/#+\s+(.*)/g, "$1")     // Headers
+        .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Links
+        .replace(/^\s*>\s+(.*)/gm, "$1") // Blockquotes
+        .replace(/```[\s\S]*?```/g, "[代码块]"); // Code blocks
+}
+
+function processAntiRisk(text: string): string {
+    return text.replace(/(https?:\/\/)/gi, "$1 ");
+}
+
 export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
   id: "qq",
   meta: {
@@ -150,6 +177,8 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
   capabilities: {
     chatTypes: ["direct", "group"],
     media: true,
+    // @ts-ignore
+    deleteMessage: true,
   },
   configSchema: buildChannelConfigSchema(QQConfigSchema),
   config: {
@@ -197,22 +226,41 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
         
         clients.set(account.accountId, client);
 
-        client.on("connect", () => {
+        client.on("connect", async () => {
              console.log(`[QQ] Connected account ${account.accountId}`);
              try {
+                // Sync bot info
+                const info = await client.getLoginInfo();
+                if (info && info.nickname) {
+                    console.log(`[QQ] Logged in as: ${info.nickname} (${info.user_id})`);
+                }
+
                 getQQRuntime().channel.activity.record({
                     channel: "qq",
                     accountId: account.accountId,
                     direction: "inbound", 
                  });
              } catch (err) {
-                 // ignore
+                 console.error("[QQ] Failed to get login info or record activity:", err);
              }
+        });
+
+        // Request handling
+        client.on("request", (event) => {
+            if (config.autoApproveRequests) {
+                console.log(`[QQ] Auto-approving request: ${event.request_type} from ${event.user_id}`);
+                if (event.request_type === "friend") {
+                    client.setFriendAddRequest(event.flag, true);
+                } else if (event.request_type === "group" && event.sub_type === "invite") {
+                    client.setGroupAddRequest(event.flag, event.sub_type, true);
+                } else if (event.request_type === "group" && event.sub_type === "add") {
+                     client.setGroupAddRequest(event.flag, event.sub_type, true);
+                }
+            }
         });
 
         client.on("message", async (event) => {
             if (event.post_type === "meta_event" && event.meta_event_type === "lifecycle" && event.sub_type === "connect") {
-                // Record bot's self ID when connected
                 if (event.self_id) {
                     client.setSelfId(event.self_id);
                 }
@@ -234,13 +282,14 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             const isGroup = event.message_type === "group";
             const userId = event.user_id;
             const groupId = event.group_id;
-            const text = event.raw_message || "";
+            let text = event.raw_message || "";
             
-            // Debug: log message structure for images
+            // Rich Media Handling
             if (Array.isArray(event.message)) {
-                const imageSegments = event.message.filter(seg => seg.type === "image");
-                if (imageSegments.length > 0) {
-                    console.log("[QQ Debug] Image segments:", JSON.stringify(imageSegments, null, 2));
+                for (const seg of event.message) {
+                    if (seg.type === "record") text += " [语音消息]";
+                    else if (seg.type === "video") text += " [视频消息]";
+                    else if (seg.type === "json") text += " [卡片消息]";
                 }
             }
             
@@ -273,12 +322,9 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             let repliedMsg: any = null;
             const replyMsgId = getReplyMessageId(event.message, text);
             
-            // Pre-fetch replied message if exists (for mention check, images, and reply context)
             if (replyMsgId) {
                 try {
-                    console.log("[QQ Debug] Fetching replied message, ID:", replyMsgId);
                     repliedMsg = await client.getMsg(replyMsgId);
-                    console.log("[QQ Debug] Got replied message:", JSON.stringify(repliedMsg, null, 2));
                 } catch (err) {
                     console.log("[QQ] Failed to get replied message:", err);
                 }
@@ -288,15 +334,11 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 const selfId = client.getSelfId();
                 let isMentioned = false;
                 
-                // If we don't know selfId yet, we can't reliably check mentions
-                // Try to get it from the event as fallback
                 const effectiveSelfId = selfId ?? event.self_id;
                 if (!effectiveSelfId) {
-                    console.log("[QQ] Cannot check mention: selfId not available yet");
                     return;
                 }
                 
-                // Check for @mention in message array
                 if (Array.isArray(event.message)) {
                     for (const segment of event.message) {
                         if (segment.type === "at" && segment.data?.qq) {
@@ -308,13 +350,11 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                         }
                     }
                 } else {
-                    // Fallback to raw message check for @bot or @all
                     if (text.includes(`[CQ:at,qq=${effectiveSelfId}]`)) {
                         isMentioned = true;
                     }
                 }
                 
-                // If not mentioned by @, check if reply is to bot's message
                 if (!isMentioned && repliedMsg) {
                     if (repliedMsg?.sender?.user_id === effectiveSelfId) {
                         isMentioned = true;
@@ -330,10 +370,7 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             const conversationLabel = isGroup ? `QQ Group ${groupId}` : `QQ User ${userId}`;
             const senderName = event.sender?.nickname || "Unknown";
 
-            // Extract images from current message (max 3, newest first)
             let mediaUrls: string[] = extractImageUrls(event.message, 3);
-            
-            // If there's space, also extract images from replied message
             if (mediaUrls.length < 3 && replyMsgId && repliedMsg?.message) {
                 const repliedImages = extractImageUrls(repliedMsg.message, 3 - mediaUrls.length);
                 mediaUrls = [...mediaUrls, ...repliedImages];
@@ -344,13 +381,21 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             // Create Dispatcher
             const deliver = async (payload: ReplyPayload) => {
                  const send = (msg: string) => {
-                     if (isGroup) client.sendGroupMsg(groupId, msg);
-                     else client.sendPrivateMsg(userId, msg);
+                     let processed = msg;
+                     if (config.formatMarkdown) {
+                         processed = stripMarkdown(processed);
+                     }
+                     if (config.antiRiskMode) {
+                         processed = processAntiRisk(processed);
+                     }
+                     const chunks = splitMessage(processed, config.maxMessageLength || 4000);
+                     
+                     for (const chunk of chunks) {
+                         if (isGroup) client.sendGroupMsg(groupId, chunk);
+                         else client.sendPrivateMsg(userId, chunk);
+                     }
                  };
 
-                 // Simulate 'Typing' by checking if we can send a status (Not supported in standard OneBot v11)
-                 // However, we can ensure we don't send too fast if needed, but 'createReplyDispatcherWithTyping' handles the delay.
-                 
                  if (payload.text) {
                      send(payload.text);
                  }
@@ -358,13 +403,9 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                  if (payload.files) {
                      for (const file of payload.files) {
                          if (file.url) {
-                            // Check file type to decide between [CQ:image] and [CQ:file]
-                            // Simple heuristic based on extension
                             if (isImageFile(file.url)) {
                                 send(`[CQ:image,file=${file.url}]`);
                             } else {
-                                // For OneBot v11, [CQ:file] usually requires a file path or url
-                                // Note: Sending non-image files via URL might require specific OneBot implementation support
                                 send(`[CQ:file,file=${file.url},name=${file.name || 'file'}]`);
                             }
                          }
@@ -376,7 +417,6 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 deliver,
             });
 
-            // Build reply context if message is a reply
             let replyToBody: string | null = null;
             let replyToSender: string | null = null;
             if (replyMsgId && repliedMsg) {
@@ -385,19 +425,15 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                     : repliedMsg.raw_message || '';
                 replyToBody = cleanCQCodes(rawBody);
                 replyToSender = repliedMsg.sender?.nickname || repliedMsg.sender?.card || String(repliedMsg.sender?.user_id || '');
-                console.log("[QQ Debug] Reply fetched:", { replyToSender, replyToBody: replyToBody.slice(0, 100) });
             }
 
-            // Build body with reply context inline (like Telegram)
             const replySuffix = replyToBody
                 ? `\n\n[Replying to ${replyToSender || "unknown"}]\n${replyToBody}\n[/Replying]`
                 : "";
             
             let bodyWithReply = cleanCQCodes(text) + replySuffix;
             
-            // Inject System Prompt if configured
             if (config.systemPrompt) {
-                // Prepending system instructions as context header
                 bodyWithReply = `<system>${config.systemPrompt}</system>\n\n${bodyWithReply}`;
             }
 
@@ -447,8 +483,7 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             } catch (error) {
                 console.error("[QQ] Dispatch Error:", error);
                 if (config.enableErrorNotify) {
-                     // Notify admin or reply with error (optional)
-                     // deliver({ text: "⚠️ Error processing request" }); 
+                     deliver({ text: "⚠️ 服务调用失败，请稍后重试。" }); 
                 }
             }
         });
@@ -469,21 +504,27 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             return { channel: "qq", sent: false, error: "Client not connected" };
         }
 
-        // Construct message: add reply segment if replyTo is provided
-        let message: OneBotMessage | string = text;
-        if (replyTo) {
-            message = [
-                { type: "reply", data: { id: String(replyTo) } },
-                { type: "text", data: { text } }
-            ];
-        }
+        // Apply splitting (Markdown/Risk handling skipped here as no config access easily, assuming text is already pre-processed or we default)
+        // If we want to support config in outbound, we need to restructure how we store clients.
+        // For now, just split.
+        const chunks = splitMessage(text, 4000);
 
-        if (to.startsWith("group:")) {
-            const groupId = parseInt(to.replace("group:", ""), 10);
-            client.sendGroupMsg(groupId, message);
-        } else {
-            const userId = parseInt(to, 10);
-            client.sendPrivateMsg(userId, message);
+        for (const chunk of chunks) {
+            let message: OneBotMessage | string = chunk;
+            if (replyTo) {
+                message = [
+                    { type: "reply", data: { id: String(replyTo) } },
+                    { type: "text", data: { text: chunk } }
+                ];
+            }
+
+            if (to.startsWith("group:")) {
+                const groupId = parseInt(to.replace("group:", ""), 10);
+                client.sendGroupMsg(groupId, message);
+            } else {
+                const userId = parseInt(to, 10);
+                client.sendPrivateMsg(userId, message);
+            }
         }
         
         return { channel: "qq", sent: true };
@@ -495,35 +536,19 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             return { channel: "qq", sent: false, error: "Client not connected" };
          }
 
-         // Construct message array for proper reply support
          const message: OneBotMessage = [];
          
-         // Add reply segment if replyTo is provided
          if (replyTo) {
              message.push({ type: "reply", data: { id: String(replyTo) } });
          }
          
-         // Add text if provided
          if (text) {
              message.push({ type: "text", data: { text } });
          }
          
-         // Add media (image or file)
          if (isImageFile(mediaUrl)) {
              message.push({ type: "image", data: { file: mediaUrl } });
          } else {
-             // Use CQ:file for non-image files (requires OneBot support for URL files)
-             // Using raw CQ code in text segment or constructing a custom node might be needed depending on implementation
-             // Here we use a safe fallback for modern OneBot implementations that support generic file segments or CQ codes
-             // Note: Standard OneBot v11 segment for file is often implementation specific or done via upload API
-             // For now, we try sending as CQ code inside a text segment or a specialized segment if available
-             // But to be safe, let's treat it as a text-based CQ code injection if the type definition allows, 
-             // or just send the link if not supported.
-             // Given existing code uses `message` array, we'll try to push a raw node if we can, or just text.
-             
-             // Simplest OneBot v11 approach: Send it as a file upload if possible, but here we only have sendMsg.
-             // Let's rely on the implementation parsing [CQ:file]
-             // We'll treat it as a "text" segment containing the CQ code because standard OneBot segment types for 'file' are rare/complex
              message.push({ type: "text", data: { text: `[CQ:file,file=${mediaUrl},url=${mediaUrl}]` } });
          }
 
@@ -535,6 +560,19 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
              client.sendPrivateMsg(userId, message);
          }
          return { channel: "qq", sent: true };
+    },
+    // @ts-ignore
+    deleteMessage: async ({ messageId, accountId }) => {
+        const client = getClientForAccount(accountId || DEFAULT_ACCOUNT_ID);
+        if (!client) {
+             return { channel: "qq", success: false, error: "Client not connected" };
+        }
+        try {
+            client.deleteMsg(messageId);
+            return { channel: "qq", success: true };
+        } catch (err) {
+            return { channel: "qq", success: false, error: String(err) };
+        }
     }
   },
   messaging: {
