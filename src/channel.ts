@@ -348,6 +348,9 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                      else client.sendPrivateMsg(userId, msg);
                  };
 
+                 // Simulate 'Typing' by checking if we can send a status (Not supported in standard OneBot v11)
+                 // However, we can ensure we don't send too fast if needed, but 'createReplyDispatcherWithTyping' handles the delay.
+                 
                  if (payload.text) {
                      send(payload.text);
                  }
