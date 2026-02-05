@@ -10,9 +10,8 @@ interface OneBotClientOptions {
 export class OneBotClient extends EventEmitter {
   private ws: WebSocket | null = null;
   private options: OneBotClientOptions;
-  private reconnectTimer: NodeJS.Timeout | null = null;
-  private isAlive = false;
-  private selfId: number | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectDelay = 60000; // Max 1 minute delay
 
   constructor(options: OneBotClientOptions) {
     super();
@@ -28,6 +27,8 @@ export class OneBotClient extends EventEmitter {
   }
 
   connect() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+
     const headers: Record<string, string> = {};
     if (this.options.accessToken) {
       headers["Authorization"] = `Bearer ${this.options.accessToken}`;
@@ -37,6 +38,7 @@ export class OneBotClient extends EventEmitter {
 
     this.ws.on("open", () => {
       this.isAlive = true;
+      this.reconnectAttempts = 0; // Reset counter on success
       this.emit("connect");
       console.log("[QQ] Connected to OneBot server");
     });
@@ -57,14 +59,23 @@ export class OneBotClient extends EventEmitter {
     this.ws.on("close", () => {
       this.isAlive = false;
       this.emit("disconnect");
-      console.log("[QQ] Disconnected. Reconnecting in 5s...");
-      this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+      this.scheduleReconnect();
     });
 
     this.ws.on("error", (err) => {
       console.error("[QQ] WebSocket error:", err);
       this.ws?.close();
     });
+  }
+
+  private scheduleReconnect() {
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
+    console.log(`[QQ] Reconnecting in ${delay / 1000}s (Attempt ${this.reconnectAttempts + 1})...`);
+    
+    this.reconnectTimer = setTimeout(() => {
+        this.reconnectAttempts++;
+        this.connect();
+    }, delay);
   }
 
   sendPrivateMsg(userId: number, message: OneBotMessage | string) {
@@ -93,6 +104,11 @@ export class OneBotClient extends EventEmitter {
 
   async getMsg(messageId: number | string): Promise<any> {
     return this.sendWithResponse("get_msg", { message_id: messageId });
+  }
+
+  // Note: get_group_msg_history is extended API supported by go-cqhttp/napcat
+  async getGroupMsgHistory(groupId: number): Promise<any> {
+    return this.sendWithResponse("get_group_msg_history", { group_id: groupId });
   }
 
   private sendWithResponse(action: string, params: any): Promise<any> {

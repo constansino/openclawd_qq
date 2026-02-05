@@ -66,6 +66,9 @@ function cleanCQCodes(text: string | undefined): string {
     const url = match[1].replace(/&amp;/g, "&");  // Decode HTML entities
     imageUrls.push(url);
   }
+
+  // Handle Face IDs
+  result = result.replace(/\[CQ:face,id=(\d+)\]/g, "[表情]");
   
   // Replace all CQ codes
   result = result.replace(/\[CQ:[^\]]+\]/g, (match) => {
@@ -143,7 +146,6 @@ function splitMessage(text: string, limit: number): string[] {
     const chunks = [];
     let current = text;
     while (current.length > 0) {
-        // Simple split, could be improved to respect word boundaries
         chunks.push(current.slice(0, limit));
         current = current.slice(limit);
     }
@@ -157,8 +159,12 @@ function stripMarkdown(text: string): string {
         .replace(/`(.*?)`/g, "$1")       // Inline code
         .replace(/#+\s+(.*)/g, "$1")     // Headers
         .replace(/\[(.*?)\]\(.*?\)/g, "$1") // Links
-        .replace(/^\s*>\s+(.*)/gm, "$1") // Blockquotes
-        .replace(/```[\s\S]*?```/g, "[代码块]"); // Code blocks
+        .replace(/^\s*>\s+(.*)/gm, "▎$1") // Blockquotes
+        .replace(/```[\s\S]*?```/g, "[代码块]") // Code blocks
+        .replace(/^\|.*\|$/gm, (match) => { // Simple table row approximation
+             return match.replace(/\|/g, " ").trim();
+        })
+        .replace(/^[\-\*]\s+/gm, "• "); // Lists
 }
 
 function processAntiRisk(text: string): string {
@@ -292,6 +298,16 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                     else if (seg.type === "json") text += " [卡片消息]";
                 }
             }
+
+            // Check blacklist/whitelist
+            if (config.blockedUsers?.includes(userId)) {
+                return;
+            }
+            if (isGroup && config.allowedGroups && config.allowedGroups.length > 0) {
+                if (!config.allowedGroups.includes(groupId)) {
+                    return;
+                }
+            }
             
             // Check admin whitelist if configured
             const isAdmin = config.admins?.includes(userId) ?? false;
@@ -328,6 +344,28 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 } catch (err) {
                     console.log("[QQ] Failed to get replied message:", err);
                 }
+            }
+
+            // Fetch History Context (Group only)
+            let historyContext = "";
+            if (isGroup) {
+                 try {
+                     // Get recent history (Note: OneBot API varies, napcat/go-cqhttp usually support get_group_msg_history)
+                     // Here we try to get messages. We limit strictly to avoid token overflow.
+                     const history = await client.getGroupMsgHistory(groupId);
+                     if (history && history.messages && Array.isArray(history.messages)) {
+                         // Filter last 5 text messages from others
+                         // We exclude the current message which is already in 'text'
+                         const recent = history.messages.slice(-6, -1); 
+                         historyContext = recent.map((m: any) => {
+                             const sender = m.sender?.nickname || m.sender?.card || m.user_id;
+                             const content = cleanCQCodes(m.raw_message || "");
+                             return `${sender}: ${content}`;
+                         }).join("\n");
+                     }
+                 } catch (e) {
+                     // History fetch failed, ignore
+                 }
             }
             
             if (isGroup && config.requireMention) {
@@ -390,7 +428,14 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                      }
                      const chunks = splitMessage(processed, config.maxMessageLength || 4000);
                      
-                     for (const chunk of chunks) {
+                     for (let i = 0; i < chunks.length; i++) {
+                         let chunk = chunks[i];
+                         
+                         // Auto-At for group replies (only on first chunk)
+                         if (isGroup && i === 0) {
+                             chunk = `[CQ:at,qq=${userId}] ${chunk}`;
+                         }
+
                          if (isGroup) client.sendGroupMsg(groupId, chunk);
                          else client.sendPrivateMsg(userId, chunk);
                      }
@@ -433,9 +478,15 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             
             let bodyWithReply = cleanCQCodes(text) + replySuffix;
             
+            let systemBlock = "";
             if (config.systemPrompt) {
-                bodyWithReply = `<system>${config.systemPrompt}</system>\n\n${bodyWithReply}`;
+                systemBlock += `<system>${config.systemPrompt}</system>\n\n`;
             }
+            if (historyContext) {
+                systemBlock += `<history>\n${historyContext}\n</history>\n\n`;
+            }
+            
+            bodyWithReply = systemBlock + bodyWithReply;
 
             const ctxPayload = runtime.channel.reply.finalizeInboundContext({
                 Provider: "qq",
@@ -504,14 +555,14 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             return { channel: "qq", sent: false, error: "Client not connected" };
         }
 
-        // Apply splitting (Markdown/Risk handling skipped here as no config access easily, assuming text is already pre-processed or we default)
-        // If we want to support config in outbound, we need to restructure how we store clients.
-        // For now, just split.
         const chunks = splitMessage(text, 4000);
 
-        for (const chunk of chunks) {
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
             let message: OneBotMessage | string = chunk;
-            if (replyTo) {
+            
+            // Only reply to first chunk
+            if (replyTo && i === 0) {
                 message = [
                     { type: "reply", data: { id: String(replyTo) } },
                     { type: "text", data: { text: chunk } }

@@ -12,6 +12,8 @@ export const QQConfigSchema = z.object({
   maxMessageLength: z.number().optional().default(4000).describe("Maximum length of a single message before splitting"),
   formatMarkdown: z.boolean().optional().default(false).describe("Format markdown to plain text for better readability"),
   antiRiskMode: z.boolean().optional().default(false).describe("Enable anti-risk processing (e.g. modify URLs)"),
+  allowedGroups: z.array(z.number()).optional().describe("Whitelist of group IDs allowed to interact with"),
+  blockedUsers: z.array(z.number()).optional().describe("Blacklist of user IDs to ignore"),
 });
 
 export type QQConfig = z.infer<typeof QQConfigSchema>;

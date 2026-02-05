@@ -1,4 +1,3 @@
-
 OpenClawd 是一个多功能代理。下面的聊天演示仅展示了最基础的功能。
 <img width="1324" height="1000" alt="image" src="https://github.com/user-attachments/assets/00b0f347-be84-4fe0-94f2-456679d84f45" />
 <img width="1687" height="1043" alt="PixPin_2026-01-29_16-09-58" src="https://github.com/user-attachments/assets/998a1d42-9566-4d20-8467-39dd1752a035" />
@@ -10,24 +9,26 @@ OpenClawd 是一个多功能代理。下面的聊天演示仅展示了最基础�
 
 ## ✨ 功能特性
 
-*   **多场景聊天**：完美支持私聊（C2C）和群聊（需 @机器人 或作为管理员）。
-*   **多媒体支持**：
-    *   **发送**：支持发送图片、文件。
-    *   **接收**：支持接收图片（最多 3 张），自动识别语音、视频、卡片消息并转换为文本提示。
-*   **智能消息处理**：
-    *   **消息去重**：内置消息 ID 去重，防止网络波动导致的重复回复。
-    *   **长消息分片**：自动将超长消息拆分为多条发送，防止被吞。
-    *   **Markdown 优化**：可选将 Markdown 格式转换为适合 QQ 显示的纯文本。
-    *   **风控规避**：可选对 URL 进行特殊处理（如加空格），降低被封概率。
+*   **智能上下文**：
+    *   **历史回溯**：群聊自动获取最近 5 条历史消息，帮助 AI 理解前文。
+    *   **系统提示词**：支持注入自定义 System Prompt。
+*   **多场景交互**：
+    *   **自动 @回复**：群聊回复自动 @原发送者（仅首条分片）。
+    *   **多媒体感知**：接收图片、语音、视频、卡片消息。
+    *   **表情理解**：将 QQ 表情代码转换为 `[表情]` 文本。
+*   **稳定性与安全**：
+    *   **黑白名单**：支持配置允许的群组 (`allowedGroups`) 和拉黑用户 (`blockedUsers`)。
+    *   **智能重连**：采用指数退避算法，网络波动时优雅重连。
+    *   **消息去重**：内置 ID 去重，防止重复回复。
+    *   **风控规避**：可选 URL 处理模式。
+*   **格式优化**：
+    *   **Markdown 转纯文本**：自动将表格、列表转换为易读的文本格式。
+    *   **长消息分片**：超长回复自动拆分。
 *   **自动化管理**：
-    *   **请求处理**：支持配置自动通过好友/群组邀请请求。
-    *   **信息同步**：启动时自动同步 Bot 昵称和头像信息。
-*   **交互体验**：
-    *   **输入模拟**：模拟人类输入节奏。
-    *   **错误反馈**：服务调用失败时自动提示用户。
-    *   **消息撤回**：支持 AI 撤回发送的不当消息。
-*   **上下文注入**：支持配置自定义系统提示词 (System Prompt)。
-*   **管理员指令**：内置 `/status` 和 `/help` 指令。
+    *   **请求处理**：自动通过好友/群组邀请。
+    *   **信息同步**：自动同步 Bot 昵称。
+    *   **消息撤回**：支持 AI 撤回不当消息。
+    *   **管理员指令**：内置 `/status`, `/help`。
 
 ---
 
@@ -68,6 +69,8 @@ node bin/onboard.js
       "wsUrl": "ws://<ONEBOT_IP>:3001",
       "accessToken": "你的Token",
       "admins": [123456],
+      "allowedGroups": [888888, 999999],
+      "blockedUsers": [444444],
       "systemPrompt": "你是一个QQ机器人。",
       "autoApproveRequests": false,
       "enableErrorNotify": true,
@@ -91,13 +94,14 @@ node bin/onboard.js
 | `wsUrl` | string | - | OneBot v11 WebSocket 地址 |
 | `accessToken` | string | - | 连接鉴权 Token |
 | `admins` | number[] | `[]` | 管理员 QQ 号列表 |
+| `allowedGroups` | number[] | `[]` | 允许互动的群组白名单（为空则允许所有） |
+| `blockedUsers` | number[] | `[]` | 黑名单用户列表 |
 | `autoApproveRequests` | boolean | `false` | 是否自动通过好友/入群请求 |
 | `enableErrorNotify` | boolean | `true` | 出错时是否发送提示消息 |
 | `formatMarkdown` | boolean | `false` | 是否去除 Markdown 格式符号 |
 | `antiRiskMode` | boolean | `false` | 是否开启风控规避（如 URL 加空格） |
 | `maxMessageLength` | number | `4000` | 单条消息最大长度，超过自动分片 |
-| `enableDeduplication` | boolean | `true` | 是否启用消息去重 |
 
 ## 🛠 常见问题
-- **无法收到群消息**：请检查 OneBot 是否开启了群消息上报，以及 `requireMention` 配置。
+- **无法获取历史消息**：请确认使用的 OneBot 客户端（如 NapCat/Go-CQHTTP）支持 `get_group_msg_history` API。
 - **发送图片失败**：请检查 OneBot 服务端是否支持网络图片发送，或网络连接是否正常。
