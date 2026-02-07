@@ -52,10 +52,10 @@ export class OneBotClient extends EventEmitter {
       });
 
       this.ws.on("message", (data) => {
+        this.isAlive = true; // Any message from server means connection is alive
         try {
           const payload = JSON.parse(data.toString()) as OneBotEvent;
           if (payload.post_type === "meta_event" && payload.meta_event_type === "heartbeat") {
-            this.isAlive = true;
             return;
           }
           this.emit("message", payload);

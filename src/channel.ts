@@ -398,6 +398,7 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
         });
 
         client.on("message", async (event) => {
+          try {
             if (event.post_type === "meta_event") {
                  if (event.meta_event_type === "lifecycle" && event.sub_type === "connect" && event.self_id) client.setSelfId(event.self_id);
                  return;
@@ -645,6 +646,9 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
 
             try { await runtime.channel.reply.dispatchReplyFromConfig({ ctx: ctxPayload, cfg, dispatcher, replyOptions });
             } catch (error) { if (config.enableErrorNotify) deliver({ text: "⚠️ 服务调用失败，请稍后重试。" }); }
+          } catch (err) {
+            console.error("[QQ] Critical error in message handler:", err);
+          }
         });
 
         client.connect();
