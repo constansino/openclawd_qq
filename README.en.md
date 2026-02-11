@@ -128,7 +128,7 @@ You can also edit config directly. Full config example:
 | `notifyNonAdminBlocked` | boolean | `false` | When `adminOnlyChat=true` and a non-admin triggers, whether to send a rejection notice. |
 | `nonAdminBlockedMessage` | string | `Only admins can trigger this bot currently.\nPlease contact an administrator if you need access.` | Rejection message shown to blocked non-admin users. |
 | `blockedNotifyCooldownMs` | number | `10000` | Cooldown (ms) for non-admin rejection notices. Prevents repeated notices within the same session/user target. |
-| `requireMention` | boolean | `true` | **Whether @mention is required**. If `true`, replies only when mentioned or replying to the bot. |
+| `requireMention` | boolean | `true` | **Group trigger gate**. `true` = trigger only on @mention / reply-to-bot / keyword hit; `false` = normal group messages may also trigger (not recommended for long-term use). |
 | `allowedGroups` | string | `""` | **Group allowlist (string)**. In Web form: `883766069 123456789`; in Raw JSON: `"883766069 123456789"`. If set, bot only replies in listed groups. |
 | `blockedUsers` | string | `""` | **User blocklist (string)**. In Web form: `342571216` or `342571216,10002`; in Raw JSON: `"342571216"`. Bot ignores messages from these users. |
 | `systemPrompt` | string | - | **Persona/system role prompt** injected into AI context. |
@@ -139,7 +139,7 @@ You can also edit config directly. Full config example:
 >
 > Security recommendation: if you worry about heavy token usage from frequent group @mentions, configure `admins` and enable `adminOnlyChat = true`.
 
-| `keywordTriggers` | string | `""` | **Keyword trigger list (string)**. In Web form: `assistant, help me`; in Raw JSON: `"assistant, help me"`. Comma/space/newline separators are supported. |
+| `keywordTriggers` | string | `""` | **Keyword trigger list (string)**. In Web form: `assistant, help me`; in Raw JSON: `"assistant, help me"`. When `requireMention=true`, keyword hits can trigger without @mention; when `requireMention=false`, keywords are not required to trigger. |
 | `autoApproveRequests` | boolean | `false` | Whether to auto-approve friend requests and group invites. |
 | `enableGuilds` | boolean | `true` | Whether to enable QQ Guild support. |
 | `enableTTS` | boolean | `false` | (Experimental) Whether to convert AI replies into voice (requires server-side TTS support). |
@@ -159,6 +159,22 @@ You can also edit config directly. Full config example:
   * Reply to a bot message.
   * Send messages containing configured **keywords** (for example, `assistant`).
   * **Poke** the bot avatar.
+
+### 🧭 Trigger Rules Quick Reference (Important)
+
+Pay close attention to the combination of `requireMention` and `keywordTriggers`:
+
+- `requireMention=true` + empty `keywordTriggers`:
+  - Trigger only on **@mention** or **reply-to-bot**.
+- `requireMention=true` + non-empty `keywordTriggers`:
+  - Trigger on **@mention / reply-to-bot / keyword hit** (any one).
+- `requireMention=false` (with or without keywords):
+  - Normal group messages may trigger; keywords are no longer a required condition.
+
+> If you want "no @mention needed, but wake-word required", use:
+>
+> - `requireMention=true`
+> - `keywordTriggers="yezi"` (or multiple keywords)
 
 ### 👮‍♂️ Admin Commands
 Only users listed in `admins` can use:
@@ -267,6 +283,12 @@ A:
 1. Check whether `requireMention` is enabled (enabled by default): you must @mention the bot.
 2. Check whether the group is included in `allowedGroups` (if set).
 3. Check OneBot logs to confirm events are being delivered.
+
+**Q: Why did the bot reply even without @mention and without wake word?**
+A: Most likely `requireMention` is set to `false`. In that mode, normal group messages may trigger. If you want "non-@mention must include wake word", set:
+
+1. `requireMention=true`
+2. Put your wake word in `keywordTriggers` (for example, `yezi`)
 
 **Q: Why do QQ request logs include prior chat text/history?**
 A: That is controlled by `historyLimit`. Current default is `0`, meaning no extra group-history injection; context is mainly managed by OpenClaw session system (closer to Telegram behavior).

@@ -131,7 +131,7 @@ openclaw setup qq
 | `notifyNonAdminBlocked` | boolean | `false` | 当 `adminOnlyChat=true` 且被非管理员触发时，是否发送提示消息。 |
 | `nonAdminBlockedMessage` | string | `当前仅管理员可触发机器人。\n如需使用请联系管理员。` | 非管理员被拦截时的提示文案。 |
 | `blockedNotifyCooldownMs` | number | `10000` | 非管理员提示防抖（毫秒）。同一用户在同一会话内重复触发时，冷却期内不重复提示。 |
-| `requireMention` | boolean | `true` | **是否需要 @ 触发**。设为 `true` 仅在被 @ 或回复机器人时响应。 |
+| `requireMention` | boolean | `true` | **群聊触发门槛**。`true`=仅在被 @ / 回复机器人 / 命中关键词时触发；`false`=普通群消息也可能触发（不建议长期关闭）。 |
 | `allowedGroups` | string | `""` | **群组白名单（字符串）**。Web表单填：`883766069 123456789`；Raw JSON 填：`"883766069 123456789"`。若设置，Bot 仅在这些群组响应。 |
 | `blockedUsers` | string | `""` | **用户黑名单（字符串）**。Web表单填：`342571216` 或 `342571216,10002`；Raw JSON 填：`"342571216"`。Bot 将忽略这些用户消息。 |
 | `systemPrompt` | string | - | **人设设定**。注入到 AI 上下文的系统提示词。 |
@@ -141,7 +141,7 @@ openclaw setup qq
 > 仅当你明确希望每轮都附带“群内原始近几条消息”时，再开启 `historyLimit`（例如设为 `3~5`）。
 >
 > 安全建议：若你担心群内高频 @ 导致 Token 消耗过快，建议配置 `admins` 并开启 `adminOnlyChat = true`。
-| `keywordTriggers` | string | `""` | **关键词触发（字符串）**。Web表单填：`小助手, 帮我`；Raw JSON 填：`"小助手, 帮我"`。支持逗号/空格/换行分隔。 |
+| `keywordTriggers` | string | `""` | **关键词触发（字符串）**。Web表单填：`小助手, 帮我`；Raw JSON 填：`"小助手, 帮我"`。当 `requireMention=true` 时，命中关键词可不@触发；当 `requireMention=false` 时，关键词不是必需条件。 |
 | `autoApproveRequests` | boolean | `false` | 是否自动通过好友申请和群邀请。 |
 | `enableGuilds` | boolean | `true` | 是否开启 QQ 频道 (Guild) 支持。 |
 | `enableTTS` | boolean | `false` | (实验性) 是否将 AI 回复转为语音发送 (需服务端支持 TTS)。 |
@@ -161,6 +161,22 @@ openclaw setup qq
     *   回复机器人的消息。
     *   发送包含**关键词**（如配置中的“小助手”）的消息。
     *   **戳一戳**机器人头像。
+
+### 🧭 触发规则速查（非常重要）
+
+请重点关注 `requireMention` 与 `keywordTriggers` 的组合：
+
+- `requireMention=true` + `keywordTriggers` 为空：
+  - 只有 **@机器人** 或 **回复机器人消息** 才触发。
+- `requireMention=true` + `keywordTriggers` 非空：
+  - **@机器人 / 回复机器人 / 命中关键词** 任一满足即可触发。
+- `requireMention=false`（无论关键词是否为空）：
+  - 普通群消息也可能触发，关键词不再是“必须条件”。
+
+> 如果你希望“可以不@，但必须说唤醒词”，推荐：
+>
+> - `requireMention=true`
+> - `keywordTriggers="椰子"`（或多个关键词）
 
 ### 👮‍♂️ 管理员指令
 仅配置在 `admins` 列表中的用户可用：
@@ -269,6 +285,12 @@ A:
 1. 检查 `requireMention` 是否开启（默认开启），需要 @机器人。
 2. 检查群组是否在 `allowedGroups` 白名单内（如果设置了的话）。
 3. 检查 OneBot 日志，确认消息是否已上报。
+
+**Q: 为什么我没 @ 也没触发词，机器人还是回了？**
+A: 通常是 `requireMention` 被设成了 `false`。在该模式下，群内普通消息也可能触发。若你要“非@时必须说唤醒词”，请设置：
+
+1. `requireMention=true`
+2. `keywordTriggers` 填入唤醒词（如 `椰子`）
 
 **Q: QQ 日志里为什么会看到“带历史内容”的请求体？**
 A: 这是 `historyLimit` 的行为。当前版本默认 `0`，即不额外拼接群历史，主要依赖 OpenClaw 会话系统管理上下文（更接近 Telegram 行为）。
