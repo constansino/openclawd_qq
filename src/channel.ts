@@ -600,22 +600,35 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             if (!isTriggered && config.keywordTriggers) {
                 for (const kw of config.keywordTriggers) { if (text.includes(kw)) { isTriggered = true; break; } }
             }
+
+            let mentionedByAt = false;
+            let mentionedByReply = false;
             
             const checkMention = isGroup || isGuild;
             if (checkMention && config.requireMention && !isTriggered) {
                 const selfId = client.getSelfId();
                 const effectiveSelfId = selfId ?? event.self_id;
                 if (!effectiveSelfId) return;
-                let mentioned = false;
                 if (Array.isArray(event.message)) {
-                    for (const s of event.message) { if (s.type === "at" && (String(s.data?.qq) === String(effectiveSelfId) || s.data?.qq === "all")) { mentioned = true; break; } }
-                } else if (text.includes(`[CQ:at,qq=${effectiveSelfId}]`)) mentioned = true;
-                if (!mentioned && repliedMsg?.sender?.user_id === effectiveSelfId) mentioned = true;
-                if (!mentioned) return;
+                    for (const s of event.message) {
+                        if (s.type === "at" && (String(s.data?.qq) === String(effectiveSelfId) || s.data?.qq === "all")) {
+                            mentionedByAt = true;
+                            break;
+                        }
+                    }
+                } else if (text.includes(`[CQ:at,qq=${effectiveSelfId}]`)) {
+                    mentionedByAt = true;
+                }
+                if (!mentionedByAt && repliedMsg?.sender?.user_id === effectiveSelfId) {
+                    mentionedByReply = true;
+                }
+                if (!mentionedByAt && !mentionedByReply) return;
             }
 
             if (config.adminOnlyChat && !isAdmin) {
                 if (config.notifyNonAdminBlocked) {
+                    const shouldNotifyBlocked = !isGroup && !isGuild ? true : (isTriggered || mentionedByAt);
+                    if (!shouldNotifyBlocked) return;
                     const msg = (config.nonAdminBlockedMessage || "当前仅管理员可触发机器人。\n如需使用请联系管理员。").trim();
                     if (msg) {
                         if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${msg}`);
