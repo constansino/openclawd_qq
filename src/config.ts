@@ -14,7 +14,7 @@ export const QQConfigSchema = z.object({
   antiRiskMode: z.boolean().optional().default(false).describe("Enable anti-risk processing (e.g. modify URLs)"),
   allowedGroups: z.array(z.number()).optional().describe("Whitelist of group IDs allowed to interact with"),
   blockedUsers: z.array(z.number()).optional().describe("Blacklist of user IDs to ignore"),
-  historyLimit: z.number().optional().default(5).describe("Number of history messages to include in context"),
+  historyLimit: z.number().optional().default(0).describe("Number of history messages to include in context"),
   keywordTriggers: z.array(z.string()).optional().describe("List of keywords that trigger the bot (without @)"),
   enableTTS: z.boolean().optional().default(false).describe("Experimental: Convert AI text replies to voice (TTS)"),
   enableGuilds: z.boolean().optional().default(true).describe("Enable QQ Guild (Channel) support"),

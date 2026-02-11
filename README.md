@@ -7,7 +7,7 @@ OpenClawd 是一个多功能代理。下面的聊天演示仅展示了最基础�
 ## ✨ 核心特性
 
 ### 🧠 深度智能与上下文
-*   **历史回溯 (Context)**：在群聊中自动获取最近 N 条历史消息（默认 5 条），让 AI 能理解对话前文，不再“健忘”。
+*   **历史回溯 (Context)**：可选在群聊中获取最近 N 条历史消息（默认 0，不额外注入），用于需要“强制保留上下文原文”的场景。
 *   **系统提示词 (System Prompt)**：支持注入自定义提示词，让 Bot 扮演特定角色（如“猫娘”、“严厉的管理员”）。
 *   **转发消息理解**：AI 能够解析并读取用户发送的合并转发聊天记录，处理复杂信息。
 *   **关键词唤醒**：除了 @机器人，支持配置特定的关键词（如“小助手”）来触发对话。
@@ -97,7 +97,7 @@ openclaw setup qq
       "allowedGroups": [10001, 10002],
       "blockedUsers": [999999],
       "systemPrompt": "你是一个名为“人工智障”的QQ机器人，说话风格要风趣幽默。",
-      "historyLimit": 5,
+      "historyLimit": 0,
       "keywordTriggers": ["小助手", "帮助"],
       "autoApproveRequests": true,
       "enableGuilds": true,
@@ -125,7 +125,10 @@ openclaw setup qq
 | `allowedGroups` | number[] | `[]` | **群组白名单**。若设置，Bot 仅在这些群组响应；若为空，则响应所有群组。 |
 | `blockedUsers` | number[] | `[]` | **用户黑名单**。Bot 将忽略这些用户的消息。 |
 | `systemPrompt` | string | - | **人设设定**。注入到 AI 上下文的系统提示词。 |
-| `historyLimit` | number | `5` | **历史消息条数**。群聊时携带最近 N 条消息给 AI，设为 0 关闭。 |
+| `historyLimit` | number | `0` | **历史消息条数**。默认依赖 OpenClaw 会话系统管理上下文；仅在你需要强制携带群内最近原文时才建议设为 `>0`。 |
+
+> 推荐：默认保持 `historyLimit = 0`。这与 Telegram 通道行为更一致，能减少重复上下文注入和日志噪音。
+> 仅当你明确希望每轮都附带“群内原始近几条消息”时，再开启 `historyLimit`（例如设为 `3~5`）。
 | `keywordTriggers` | string[] | `[]` | **关键词触发**。群聊中无需 @，包含这些词也会触发回复。 |
 | `autoApproveRequests` | boolean | `false` | 是否自动通过好友申请和群邀请。 |
 | `enableGuilds` | boolean | `true` | 是否开启 QQ 频道 (Guild) 支持。 |
@@ -208,6 +211,16 @@ A:
 1. 检查 `requireMention` 是否开启（默认开启），需要 @机器人。
 2. 检查群组是否在 `allowedGroups` 白名单内（如果设置了的话）。
 3. 检查 OneBot 日志，确认消息是否已上报。
+
+**Q: QQ 日志里为什么会看到“带历史内容”的请求体？**
+A: 这是 `historyLimit` 的行为。当前版本默认 `0`，即不额外拼接群历史，主要依赖 OpenClaw 会话系统管理上下文（更接近 Telegram 行为）。
+如果你把 `historyLimit` 设为 `>0`，插件会在每次群聊请求里附加最近 N 条原文消息。
+
+## 🆕 近期改进
+
+*   修复 `admins` 逻辑：`admins` 现在仅控制管理员指令权限，不再拦截普通群消息。
+*   优化会话路由：QQ 会话改为标准路由器管理，减少在控制台/WebUI中的会话错位与混淆。
+*   降低上下文噪音：`historyLimit` 默认改为 `0`，默认依赖会话系统，不重复注入历史原文。
 
 **Q: 如何让 Bot 说话（TTS）？**
 A: 将 `enableTTS` 设为 `true`。注意：这取决于 OneBot 服务端是否支持 TTS 转换。通常 NapCat/Lagrange 对此支持有限，可能需要额外插件。
