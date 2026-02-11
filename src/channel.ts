@@ -671,9 +671,7 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             await runtime.channel.session.recordInboundSession({
                 storePath: runtime.channel.session.resolveStorePath(cfg.session?.store, { agentId: route.agentId }),
                 sessionKey: ctxPayload.SessionKey!, ctx: ctxPayload,
-                updateLastRoute: (!isGroup && !isGuild)
-                    ? { sessionKey: route.mainSessionKey, channel: "qq", to: fromId, accountId: route.accountId }
-                    : undefined,
+                updateLastRoute: undefined,
                 onRecordError: (err) => console.error("QQ Session Error:", err)
             });
 
