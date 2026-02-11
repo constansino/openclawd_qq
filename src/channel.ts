@@ -686,6 +686,13 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             const channelId = event.channel_id;
             
             let text = event.raw_message || "";
+            const fileHints: Array<{
+                name: string;
+                url?: string;
+                fileId?: string;
+                busid?: string;
+                size?: number;
+            }> = [];
             
             if (Array.isArray(event.message)) {
                 let resolvedText = "";
@@ -726,7 +733,24 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                                  if (info?.url) seg.data.url = info.url;
                              } catch(e) {}
                          }
-                         resolvedText += ` [文件: ${seg.data?.file || "未命名"}]`;
+                         const fileName = seg.data?.name || seg.data?.file || "未命名";
+                         const fileId = seg.data?.file_id ? String(seg.data.file_id) : undefined;
+                         const busid = seg.data?.busid !== undefined ? String(seg.data.busid) : undefined;
+                         const fileUrl = typeof seg.data?.url === "string" ? seg.data.url : undefined;
+                         const fileSize = typeof seg.data?.file_size === "number" ? seg.data.file_size : undefined;
+                         fileHints.push({
+                            name: fileName,
+                            ...(fileUrl ? { url: fileUrl } : {}),
+                            ...(fileId ? { fileId } : {}),
+                            ...(busid ? { busid } : {}),
+                            ...(fileSize !== undefined ? { size: fileSize } : {}),
+                         });
+                         const shortHint = fileUrl
+                            ? ` [文件: ${fileName}, 下载=${fileUrl}]`
+                            : fileId
+                                ? ` [文件: ${fileName}, file_id=${fileId}${busid ? `, busid=${busid}` : ""}]`
+                                : ` [文件: ${fileName}]`;
+                         resolvedText += shortHint;
                     }
                 }
                 if (resolvedText) text = resolvedText;
@@ -929,6 +953,18 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             let systemBlock = "";
             if (config.systemPrompt) systemBlock += `<system>${config.systemPrompt}</system>\n\n`;
             if (historyContext) systemBlock += `<history>\n${historyContext}\n</history>\n\n`;
+            if (fileHints.length > 0) {
+                systemBlock += `<attachments>\n`;
+                for (const hint of fileHints) {
+                    const parts = [`name=${hint.name}`];
+                    if (hint.url) parts.push(`url=${hint.url}`);
+                    if (hint.fileId) parts.push(`file_id=${hint.fileId}`);
+                    if (hint.busid) parts.push(`busid=${hint.busid}`);
+                    if (hint.size !== undefined) parts.push(`size=${hint.size}`);
+                    systemBlock += `- qq_file ${parts.join(" ")}\n`;
+                }
+                systemBlock += `</attachments>\n\n`;
+            }
             bodyWithReply = systemBlock + bodyWithReply;
 
             const ctxPayload = runtime.channel.reply.finalizeInboundContext({
