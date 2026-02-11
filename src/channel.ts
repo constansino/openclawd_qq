@@ -546,18 +546,6 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             
             const isAdmin = adminIds.includes(userId);
 
-            if (config.adminOnlyChat && !isAdmin) {
-                if (config.notifyNonAdminBlocked) {
-                    const msg = (config.nonAdminBlockedMessage || "当前仅管理员可触发机器人。\n如需使用请联系管理员。").trim();
-                    if (msg) {
-                        if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${msg}`);
-                        else if (isGuild) client.sendGuildChannelMsg(guildId, channelId, msg);
-                        else client.sendPrivateMsg(userId, msg);
-                    }
-                }
-                return;
-            }
-
             if (!isGuild && isAdmin && text.trim().startsWith('/')) {
                 const parts = text.trim().split(/\s+/);
                 const cmd = parts[0];
@@ -624,6 +612,18 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 } else if (text.includes(`[CQ:at,qq=${effectiveSelfId}]`)) mentioned = true;
                 if (!mentioned && repliedMsg?.sender?.user_id === effectiveSelfId) mentioned = true;
                 if (!mentioned) return;
+            }
+
+            if (config.adminOnlyChat && !isAdmin) {
+                if (config.notifyNonAdminBlocked) {
+                    const msg = (config.nonAdminBlockedMessage || "当前仅管理员可触发机器人。\n如需使用请联系管理员。").trim();
+                    if (msg) {
+                        if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${msg}`);
+                        else if (isGuild) client.sendGuildChannelMsg(guildId, channelId, msg);
+                        else client.sendPrivateMsg(userId, msg);
+                    }
+                }
+                return;
             }
 
             let fromId = String(userId);
