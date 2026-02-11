@@ -93,9 +93,9 @@ openclaw setup qq
     "qq": {
       "wsUrl": "ws://127.0.0.1:3001",
       "accessToken": "你的Token",
-      "admins": [12345678, 87654321],
-      "allowedGroups": [10001, 10002],
-      "blockedUsers": [999999],
+      "admins": "12345678,87654321",
+      "allowedGroups": "10001,10002",
+      "blockedUsers": "999999",
       "systemPrompt": "你是一个名为“人工智障”的QQ机器人，说话风格要风趣幽默。",
       "historyLimit": 0,
       "keywordTriggers": ["小助手", "帮助"],
@@ -120,10 +120,10 @@ openclaw setup qq
 | :--- | :--- | :--- | :--- |
 | `wsUrl` | string | **必填** | OneBot v11 WebSocket 地址 |
 | `accessToken` | string | - | 连接鉴权 Token |
-| `admins` | number[] | `[]` | **管理员 QQ 号列表**。拥有执行 `/status`, `/kick` 等指令的权限。 |
+| `admins` | string | `""` | **管理员 QQ 号列表**（逗号/空格/换行分隔）。用于 `/status`, `/kick` 等管理员指令权限。 |
 | `requireMention` | boolean | `true` | **是否需要 @ 触发**。设为 `true` 仅在被 @ 或回复机器人时响应。 |
-| `allowedGroups` | number[] | `[]` | **群组白名单**。若设置，Bot 仅在这些群组响应；若为空，则响应所有群组。 |
-| `blockedUsers` | number[] | `[]` | **用户黑名单**。Bot 将忽略这些用户的消息。 |
+| `allowedGroups` | string | `""` | **群组白名单**（逗号/空格/换行分隔）。若设置，Bot 仅在这些群组响应。 |
+| `blockedUsers` | string | `""` | **用户黑名单**（逗号/空格/换行分隔）。Bot 将忽略这些用户的消息。 |
 | `systemPrompt` | string | - | **人设设定**。注入到 AI 上下文的系统提示词。 |
 | `historyLimit` | number | `0` | **历史消息条数**。默认依赖 OpenClaw 会话系统管理上下文；仅在你需要强制携带群内最近原文时才建议设为 `>0`。 |
 

@@ -1,17 +1,9 @@
 import { z } from "zod";
 
-const QQIdSchema = z.union([
-  z.number(),
-  z.string().regex(/^\d+$/, "QQ/群号必须是纯数字字符串"),
-]);
-
 export const QQConfigSchema = z.object({
   wsUrl: z.string().url().describe("The WebSocket URL of the OneBot v11 server (e.g. ws://localhost:3001)"),
   accessToken: z.string().optional().describe("The access token for the OneBot server"),
-  admins: z.union([
-    z.string(),
-    z.array(QQIdSchema),
-  ]).optional().describe("Admin QQ numbers (comma/newline separated or array)"),
+  admins: z.string().optional().describe("Admin QQ numbers (comma/space/newline separated, e.g. 12345,67890)"),
   requireMention: z.boolean().optional().default(true).describe("Require @mention or reply to bot in group chats"),
   systemPrompt: z.string().optional().describe("Custom system prompt to inject into the context"),
   enableDeduplication: z.boolean().optional().default(true).describe("Enable message deduplication to prevent double replies"),
@@ -20,8 +12,8 @@ export const QQConfigSchema = z.object({
   maxMessageLength: z.number().optional().default(4000).describe("Maximum length of a single message before splitting"),
   formatMarkdown: z.boolean().optional().default(false).describe("Format markdown to plain text for better readability"),
   antiRiskMode: z.boolean().optional().default(false).describe("Enable anti-risk processing (e.g. modify URLs)"),
-  allowedGroups: z.array(QQIdSchema).optional().describe("Whitelist of group IDs allowed to interact with"),
-  blockedUsers: z.array(QQIdSchema).optional().describe("Blacklist of user IDs to ignore"),
+  allowedGroups: z.string().optional().describe("Whitelist group IDs (comma/space/newline separated)"),
+  blockedUsers: z.string().optional().describe("Blacklist user IDs (comma/space/newline separated)"),
   historyLimit: z.number().optional().default(0).describe("Number of history messages to include in context"),
   keywordTriggers: z.array(z.string()).optional().describe("List of keywords that trigger the bot (without @)"),
   enableTTS: z.boolean().optional().default(false).describe("Experimental: Convert AI text replies to voice (TTS)"),
