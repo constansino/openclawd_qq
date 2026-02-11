@@ -50,6 +50,6 @@ export const QQConfigSchema = z.object({
   enableTTS: z.boolean().optional().default(false).describe("是否启用语音回复（依赖 OneBot 服务端支持）。"),
   enableGuilds: z.boolean().optional().default(true).describe("是否启用 QQ 频道（Guild）支持。"),
   rateLimitMs: NumberInputSchema(1000).describe("多段消息发送间隔（毫秒）。建议 1000。"),
-});
+}).passthrough();
 
 export type QQConfig = z.infer<typeof QQConfigSchema>;
