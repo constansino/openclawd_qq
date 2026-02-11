@@ -123,6 +123,7 @@ function normalizeTarget(raw: string): string {
 const clients = new Map<string, OneBotClient>();
 const accountConfigs = new Map<string, QQConfig>();
 const blockedNotifyCache = new Map<string, number>();
+const activeTaskIds = new Set<string>();
 
 function normalizeNumericId(value: string | number | undefined | null): number | null {
     if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
@@ -183,6 +184,21 @@ function normalizeAccountLookupId(accountId: string | undefined | null): string 
     const noPrefix = raw.replace(/^qq:/i, "");
     if (noPrefix) return noPrefix;
     return DEFAULT_ACCOUNT_ID;
+}
+
+function buildTaskKey(accountId: string, isGroup: boolean, isGuild: boolean, groupId?: number, guildId?: string, channelId?: string, userId?: number): string {
+    if (isGroup && groupId !== undefined && userId !== undefined) return `${accountId}:group:${groupId}:user:${userId}`;
+    if (isGuild && guildId && channelId && userId !== undefined) return `${accountId}:guild:${guildId}:${channelId}:user:${userId}`;
+    return `${accountId}:dm:${String(userId ?? "unknown")}`;
+}
+
+function countActiveTasksForAccount(accountId: string): number {
+    let count = 0;
+    const prefix = `${accountId}:`;
+    for (const taskId of activeTaskIds) {
+        if (taskId.startsWith(prefix)) count += 1;
+    }
+    return count;
 }
 
 function getClientForAccount(accountId: string | undefined | null) {
@@ -765,7 +781,8 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 const parts = text.trim().split(/\s+/);
                 const cmd = parts[0];
                 if (cmd === '/status') {
-                    const statusMsg = `[OpenClawd QQ]\nState: Connected\nSelf ID: ${client.getSelfId()}\nMemory: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`;
+                    const activeCount = countActiveTasksForAccount(account.accountId);
+                    const statusMsg = `[OpenClawd QQ]\nState: Connected\nSelf ID: ${client.getSelfId()}\nMemory: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB\nActiveTasks: ${activeCount}`;
                     if (isGroup) client.sendGroupMsg(groupId, statusMsg); else client.sendPrivateMsg(userId, statusMsg);
                     return;
                 }
@@ -1023,8 +1040,56 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 onRecordError: (err) => console.error("QQ Session Error:", err)
             });
 
+            let processingStartAt = 0;
+            let processingDelayTimer: NodeJS.Timeout | null = null;
+            let processingPulseTimer: NodeJS.Timeout | null = null;
+            let processingStartedNoticeSent = false;
+            const taskKey = buildTaskKey(account.accountId, isGroup, isGuild, groupId, guildId, channelId, userId);
+
+            const sendProcessingStatus = (message: string) => {
+                if (!message || !message.trim()) return;
+                if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${message}`);
+                else if (isGuild) client.sendGuildChannelMsg(guildId, channelId, message);
+                else client.sendPrivateMsg(userId, message);
+            };
+
+            const clearProcessingTimers = () => {
+                if (processingDelayTimer) {
+                    clearTimeout(processingDelayTimer);
+                    processingDelayTimer = null;
+                }
+                if (processingPulseTimer) {
+                    clearInterval(processingPulseTimer);
+                    processingPulseTimer = null;
+                }
+            };
+
+            if (config.showProcessingStatus !== false) {
+                processingStartAt = Date.now();
+                activeTaskIds.add(taskKey);
+                const delayMs = Math.max(1000, Number(config.processingStatusDelayMs ?? 12000));
+                const pulseMs = Math.max(5000, Number(config.processingStatusIntervalMs ?? 30000));
+                processingDelayTimer = setTimeout(() => {
+                    processingStartedNoticeSent = true;
+                    sendProcessingStatus((config.processingStatusText || "⏳任务还在后台处理中，我还活着，别急哈～").trim());
+                    processingPulseTimer = setInterval(() => {
+                        const elapsedSec = Math.max(1, Math.floor((Date.now() - processingStartAt) / 1000));
+                        const raw = (config.processingPulseText || "⏳还在处理（已运行 {elapsed}s）...").trim();
+                        sendProcessingStatus(raw.replaceAll("{elapsed}", String(elapsedSec)));
+                    }, pulseMs);
+                }, delayMs);
+            }
+
             try { await runtime.channel.reply.dispatchReplyFromConfig({ ctx: ctxPayload, cfg, dispatcher, replyOptions });
             } catch (error) { if (config.enableErrorNotify) deliver({ text: "⚠️ 服务调用失败，请稍后重试。" }); }
+            finally {
+                clearProcessingTimers();
+                activeTaskIds.delete(taskKey);
+                if (processingStartedNoticeSent) {
+                    const elapsedSec = Math.max(1, Math.floor((Date.now() - processingStartAt) / 1000));
+                    sendProcessingStatus(`✅处理完成（耗时 ${elapsedSec}s）`);
+                }
+            }
           } catch (err) {
             console.error("[QQ] Critical error in message handler:", err);
           }
