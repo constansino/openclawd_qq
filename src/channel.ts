@@ -541,6 +541,12 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             if (isGroup && allowedGroupIds.length && !allowedGroupIds.includes(groupId)) return;
             
             const isAdmin = adminIds.includes(userId);
+
+            if (config.adminOnlyChat && !isAdmin) {
+                if (!isGuild && text.trim().startsWith('/')) return;
+                return;
+            }
+
             if (!isGuild && isAdmin && text.trim().startsWith('/')) {
                 const parts = text.trim().split(/\s+/);
                 const cmd = parts[0];

@@ -94,6 +94,7 @@ openclaw setup qq
       "wsUrl": "ws://127.0.0.1:3001",
       "accessToken": "你的Token",
       "admins": "12345678,87654321",
+      "adminOnlyChat": false,
       "allowedGroups": "10001,10002",
       "blockedUsers": "999999",
       "systemPrompt": "你是一个名为“人工智障”的QQ机器人，说话风格要风趣幽默。",
@@ -121,6 +122,7 @@ openclaw setup qq
 | `wsUrl` | string | **必填** | OneBot v11 WebSocket 地址 |
 | `accessToken` | string | - | 连接鉴权 Token |
 | `admins` | string | `""` | **管理员 QQ 号列表**（逗号/空格/换行分隔）。用于 `/status`, `/kick` 等管理员指令权限。 |
+| `adminOnlyChat` | boolean | `false` | **仅管理员可触发聊天回复**。开启后，非管理员即使 @ 机器人也不会触发对话（适合防止 Token 被刷）。 |
 | `requireMention` | boolean | `true` | **是否需要 @ 触发**。设为 `true` 仅在被 @ 或回复机器人时响应。 |
 | `allowedGroups` | string | `""` | **群组白名单**（逗号/空格/换行分隔）。若设置，Bot 仅在这些群组响应。 |
 | `blockedUsers` | string | `""` | **用户黑名单**（逗号/空格/换行分隔）。Bot 将忽略这些用户的消息。 |
@@ -129,6 +131,8 @@ openclaw setup qq
 
 > 推荐：默认保持 `historyLimit = 0`。这与 Telegram 通道行为更一致，能减少重复上下文注入和日志噪音。
 > 仅当你明确希望每轮都附带“群内原始近几条消息”时，再开启 `historyLimit`（例如设为 `3~5`）。
+>
+> 安全建议：若你担心群内高频 @ 导致 Token 消耗过快，建议配置 `admins` 并开启 `adminOnlyChat = true`。
 | `keywordTriggers` | string[] | `[]` | **关键词触发**。群聊中无需 @，包含这些词也会触发回复。 |
 | `autoApproveRequests` | boolean | `false` | 是否自动通过好友申请和群邀请。 |
 | `enableGuilds` | boolean | `true` | 是否开启 QQ 频道 (Guild) 支持。 |
