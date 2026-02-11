@@ -799,6 +799,45 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             if (replyMsgId) {
                 try { repliedMsg = await client.getMsg(replyMsgId); } catch (err) {}
             }
+
+            if (fileHints.length === 0 && repliedMsg) {
+                try {
+                    const replySegments = Array.isArray(repliedMsg.message) ? repliedMsg.message : [];
+                    for (const seg of replySegments) {
+                        if (seg?.type !== "file") continue;
+                        if (!seg.data?.url && isGroup && seg.data?.file_id) {
+                            try {
+                                const info = await (client as any).sendWithResponse("get_group_file_url", {
+                                    group_id: groupId,
+                                    file_id: seg.data.file_id,
+                                    busid: seg.data.busid,
+                                });
+                                if (info?.url) seg.data.url = info.url;
+                            } catch {}
+                        }
+                        const fileName = seg.data?.name || seg.data?.file || "未命名";
+                        const fileId = seg.data?.file_id ? String(seg.data.file_id) : undefined;
+                        const busid = seg.data?.busid !== undefined ? String(seg.data.busid) : undefined;
+                        const fileUrl = typeof seg.data?.url === "string" ? seg.data.url : undefined;
+                        const fileSize = typeof seg.data?.file_size === "number" ? seg.data.file_size : undefined;
+                        fileHints.push({
+                            name: fileName,
+                            ...(fileUrl ? { url: fileUrl } : {}),
+                            ...(fileId ? { fileId } : {}),
+                            ...(busid ? { busid } : {}),
+                            ...(fileSize !== undefined ? { size: fileSize } : {}),
+                        });
+                    }
+
+                    if (fileHints.length === 0 && typeof repliedMsg.raw_message === "string") {
+                        const raw = repliedMsg.raw_message;
+                        const fileNameMatch = raw.match(/\[文件[:：]?\s*([^\]]+)\]/);
+                        if (fileNameMatch) {
+                            fileHints.push({ name: fileNameMatch[1].trim() || "未命名" });
+                        }
+                    }
+                } catch {}
+            }
             
             let historyContext = "";
             if (isGroup && config.historyLimit !== 0) {
