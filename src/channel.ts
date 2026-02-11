@@ -120,6 +120,7 @@ function normalizeTarget(raw: string): string {
 }
 
 const clients = new Map<string, OneBotClient>();
+const blockedNotifyCache = new Map<string, number>();
 
 function normalizeNumericId(value: string | number | undefined | null): number | null {
     if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
@@ -415,6 +416,7 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
         const adminIds = [...new Set(parseIdListInput(config.admins as string | number | Array<string | number> | undefined))];
         const allowedGroupIds = [...new Set(parseIdListInput(config.allowedGroups as string | number | Array<string | number> | undefined))];
         const blockedUserIds = [...new Set(parseIdListInput(config.blockedUsers as string | number | Array<string | number> | undefined))];
+        const blockedNotifyCooldownMs = Math.max(0, Number(config.blockedNotifyCooldownMs ?? 10000));
 
         if (!config.wsUrl) throw new Error("QQ: wsUrl is required");
 
@@ -629,6 +631,16 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 if (config.notifyNonAdminBlocked) {
                     const shouldNotifyBlocked = !isGroup && !isGuild ? true : (isTriggered || mentionedByAt);
                     if (!shouldNotifyBlocked) return;
+                    const now = Date.now();
+                    const targetKey = isGroup
+                        ? `g:${groupId}:u:${userId}`
+                        : isGuild
+                            ? `guild:${guildId}:${channelId}:u:${userId}`
+                            : `dm:${userId}`;
+                    const cacheKey = `${account.accountId}:${targetKey}`;
+                    const lastNotifyAt = blockedNotifyCache.get(cacheKey) ?? 0;
+                    if (blockedNotifyCooldownMs > 0 && now - lastNotifyAt < blockedNotifyCooldownMs) return;
+                    blockedNotifyCache.set(cacheKey, now);
                     const msg = (config.nonAdminBlockedMessage || "当前仅管理员可触发机器人。\n如需使用请联系管理员。").trim();
                     if (msg) {
                         if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${msg}`);

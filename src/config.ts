@@ -11,6 +11,7 @@ export const QQConfigSchema = z.object({
   adminOnlyChat: z.boolean().optional().default(false).describe("仅管理员可触发聊天（防盗刷推荐开启）。"),
   notifyNonAdminBlocked: z.boolean().optional().default(false).describe("启用管理员模式后，是否提示非管理员“无权限”。"),
   nonAdminBlockedMessage: z.string().optional().default("当前仅管理员可触发机器人。\n如需使用请联系管理员。"),
+  blockedNotifyCooldownMs: z.number().optional().default(10000).describe("非管理员拦截提示防抖时长（毫秒）。10秒可填 10000。"),
   autoApproveRequests: z.boolean().optional().default(false).describe("自动通过好友申请/群邀请。"),
   maxMessageLength: z.number().optional().default(4000).describe("单条消息最大长度，超出后自动分段发送。"),
   formatMarkdown: z.boolean().optional().default(false).describe("把 Markdown 转纯文本，QQ 显示更清晰。"),

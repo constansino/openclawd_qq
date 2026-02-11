@@ -97,6 +97,7 @@ openclaw setup qq
       "adminOnlyChat": false,
       "notifyNonAdminBlocked": false,
       "nonAdminBlockedMessage": "当前仅管理员可触发机器人。\n如需使用请联系管理员。",
+      "blockedNotifyCooldownMs": 10000,
       "allowedGroups": "10001,10002",
       "blockedUsers": "999999",
       "systemPrompt": "你是一个名为“人工智障”的QQ机器人，说话风格要风趣幽默。",
@@ -127,6 +128,7 @@ openclaw setup qq
 | `adminOnlyChat` | boolean | `false` | **仅管理员可触发聊天回复**。开启后，非管理员即使 @ 机器人也不会触发对话（适合防止 Token 被刷）。 |
 | `notifyNonAdminBlocked` | boolean | `false` | 当 `adminOnlyChat=true` 且被非管理员触发时，是否发送提示消息。 |
 | `nonAdminBlockedMessage` | string | `当前仅管理员可触发机器人。\n如需使用请联系管理员。` | 非管理员被拦截时的提示文案。 |
+| `blockedNotifyCooldownMs` | number | `10000` | 非管理员提示防抖（毫秒）。同一用户在同一会话内重复触发时，冷却期内不重复提示。 |
 | `requireMention` | boolean | `true` | **是否需要 @ 触发**。设为 `true` 仅在被 @ 或回复机器人时响应。 |
 | `allowedGroups` | string | `""` | **群组白名单**（逗号/空格/换行分隔）。若设置，Bot 仅在这些群组响应。 |
 | `blockedUsers` | string | `""` | **用户黑名单**（逗号/空格/换行分隔）。Bot 将忽略这些用户的消息。 |
