@@ -16,6 +16,8 @@ export class OneBotClient extends EventEmitter {
   private isAlive = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private pendingMessages: Array<{ action: string; params: any }> = [];
+  private lastMessageAt = 0;
 
   constructor(options: OneBotClientOptions) {
     super();
@@ -44,8 +46,17 @@ export class OneBotClient extends EventEmitter {
       this.ws.on("open", () => {
         this.isAlive = true;
         this.reconnectAttempts = 0; // Reset counter on success
+        this.lastMessageAt = Date.now();
         this.emit("connect");
         console.log("[QQ] Connected to OneBot server");
+
+        if (this.pendingMessages.length > 0) {
+          const toFlush = this.pendingMessages.splice(0, this.pendingMessages.length);
+          for (const item of toFlush) {
+            this.ws?.send(JSON.stringify({ action: item.action, params: item.params }));
+          }
+          console.log(`[QQ] Flushed ${toFlush.length} queued outbound message(s)`);
+        }
         
         // Start heartbeat check
         this.startHeartbeat();
@@ -53,6 +64,7 @@ export class OneBotClient extends EventEmitter {
 
       this.ws.on("message", (data) => {
         this.isAlive = true; // Any message from server means connection is alive
+        this.lastMessageAt = Date.now();
         try {
           const payload = JSON.parse(data.toString()) as OneBotEvent;
           if (payload.post_type === "meta_event" && payload.meta_event_type === "heartbeat") {
@@ -98,16 +110,15 @@ export class OneBotClient extends EventEmitter {
 
   private startHeartbeat() {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    // Check every 30 seconds
+    // Check every 30 seconds; tolerate idle links and only reconnect when stale for too long.
     this.heartbeatTimer = setInterval(() => {
-      if (this.isAlive === false) {
-        console.warn("[QQ] Heartbeat timeout, forcing reconnect...");
+      const staleMs = Date.now() - this.lastMessageAt;
+      if (staleMs > 180000) {
+        console.warn(`[QQ] No inbound traffic for ${Math.round(staleMs / 1000)}s, forcing reconnect...`);
         this.handleDisconnect();
         return;
       }
-      this.isAlive = false;
-      // We don't send ping, we rely on OneBot's heartbeat meta_event
-      // or we can send a small API call to verify
+      this.isAlive = true;
     }, 45000); 
   }
 
@@ -247,7 +258,13 @@ export class OneBotClient extends EventEmitter {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ action, params }));
     } else {
-      console.warn("[QQ] Cannot send message, WebSocket not open");
+      if (this.pendingMessages.length < 200) {
+        this.pendingMessages.push({ action, params });
+      }
+      console.warn(`[QQ] WebSocket not open; queued outbound action=${action} queue=${this.pendingMessages.length}`);
+      if (!this.reconnectTimer) {
+        this.scheduleReconnect();
+      }
     }
   }
 

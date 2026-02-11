@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type ChannelPlugin,
@@ -173,8 +174,37 @@ function parseKeywordTriggersInput(values: string | string[] | undefined): strin
     return [];
 }
 
-function getClientForAccount(accountId: string) {
-    return clients.get(accountId);
+function normalizeAccountLookupId(accountId: string | undefined | null): string {
+    const raw = typeof accountId === "string" ? accountId.trim() : "";
+    if (!raw) return DEFAULT_ACCOUNT_ID;
+    if (raw === DEFAULT_ACCOUNT_ID) return raw;
+
+    const noPrefix = raw.replace(/^qq:/i, "");
+    if (noPrefix) return noPrefix;
+    return DEFAULT_ACCOUNT_ID;
+}
+
+function getClientForAccount(accountId: string | undefined | null) {
+    const lookupId = normalizeAccountLookupId(accountId);
+    const direct = clients.get(lookupId);
+    if (direct) return direct;
+
+    const normalized = normalizeAccountId(lookupId);
+    if (normalized && clients.has(normalized)) {
+        return clients.get(normalized);
+    }
+
+    const suffix = lookupId.includes(":") ? lookupId.split(":").pop() : lookupId;
+    if (suffix && clients.has(suffix)) {
+        return clients.get(suffix);
+    }
+
+    if (clients.size === 1) {
+        return Array.from(clients.values())[0];
+    }
+
+    console.warn(`[QQ] Client lookup miss: requested=${String(accountId)} resolved=${lookupId} keys=${Array.from(clients.keys()).join(",")}`);
+    return undefined;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -226,6 +256,24 @@ async function resolveMediaUrl(url: string): Promise<string> {
             return url; // Fallback to original
         }
     }
+
+    const looksLocalPath =
+      url.startsWith("/") ||
+      url.startsWith("./") ||
+      url.startsWith("../") ||
+      /^[A-Za-z]:[\\/]/.test(url);
+    if (looksLocalPath) {
+        try {
+            const absolutePath = path.isAbsolute(url) ? url : path.resolve(process.cwd(), url);
+            const data = await fs.readFile(absolutePath);
+            const base64 = data.toString("base64");
+            return `base64://${base64}`;
+        } catch (e) {
+            console.warn(`[QQ] Failed to read local media path for base64 conversion: ${url} (${e})`);
+            return url;
+        }
+    }
+
     return url;
 }
 
@@ -815,7 +863,8 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
          const message: OneBotMessage = [];
          if (replyTo) message.push({ type: "reply", data: { id: String(replyTo) } });
          if (text) message.push({ type: "text", data: { text } });
-         if (isImageFile(mediaUrl)) message.push({ type: "image", data: { file: finalUrl } });
+         const imageLike = isImageFile(mediaUrl) || isImageFile(finalUrl) || finalUrl.startsWith("base64://");
+         if (imageLike) message.push({ type: "image", data: { file: finalUrl } });
          else message.push({ type: "text", data: { text: `[CQ:file,file=${finalUrl},url=${finalUrl}]` } });
          
          if (to.startsWith("group:")) client.sendGroupMsg(parseInt(to.replace("group:", ""), 10), message);
