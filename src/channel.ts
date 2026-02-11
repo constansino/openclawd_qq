@@ -585,6 +585,15 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             }
 
             const runtime = getQQRuntime();
+            const route = runtime.channel.routing.resolveAgentRoute({
+                cfg,
+                channel: "qq",
+                accountId: account.accountId,
+                peer: {
+                    kind: isGuild ? "channel" : (isGroup ? "group" : "direct"),
+                    id: fromId,
+                },
+            });
 
             const deliver = async (payload: ReplyPayload) => {
                  const send = async (msg: string) => {
@@ -652,16 +661,16 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             const ctxPayload = runtime.channel.reply.finalizeInboundContext({
                 Provider: "qq", Channel: "qq", From: fromId, To: "qq:bot", Body: bodyWithReply, RawBody: text,
                 SenderId: String(userId), SenderName: event.sender?.nickname || "Unknown", ConversationLabel: conversationLabel,
-                SessionKey: `qq:${fromId}`, AccountId: account.accountId, ChatType: isGroup ? "group" : isGuild ? "channel" : "direct", Timestamp: event.time * 1000,
+                SessionKey: route.sessionKey, AccountId: route.accountId, ChatType: isGroup ? "group" : isGuild ? "channel" : "direct", Timestamp: event.time * 1000,
                 OriginatingChannel: "qq", OriginatingTo: fromId, CommandAuthorized: true,
                 ...(extractImageUrls(event.message).length > 0 && { MediaUrls: extractImageUrls(event.message) }),
                 ...(replyMsgId && { ReplyToId: replyMsgId, ReplyToBody: replyToBody, ReplyToSender: replyToSender }),
             });
             
             await runtime.channel.session.recordInboundSession({
-                storePath: runtime.channel.session.resolveStorePath(cfg.session?.store, { agentId: "default" }),
+                storePath: runtime.channel.session.resolveStorePath(cfg.session?.store, { agentId: route.agentId }),
                 sessionKey: ctxPayload.SessionKey!, ctx: ctxPayload,
-                updateLastRoute: { sessionKey: ctxPayload.SessionKey!, channel: "qq", to: fromId, accountId: account.accountId },
+                updateLastRoute: { sessionKey: route.mainSessionKey, channel: "qq", to: fromId, accountId: route.accountId },
                 onRecordError: (err) => console.error("QQ Session Error:", err)
             });
 
