@@ -662,6 +662,7 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 Provider: "qq", Channel: "qq", From: fromId, To: "qq:bot", Body: bodyWithReply, RawBody: text,
                 SenderId: String(userId), SenderName: event.sender?.nickname || "Unknown", ConversationLabel: conversationLabel,
                 SessionKey: route.sessionKey, AccountId: route.accountId, ChatType: isGroup ? "group" : isGuild ? "channel" : "direct", Timestamp: event.time * 1000,
+                Surface: "qq",
                 OriginatingChannel: "qq", OriginatingTo: fromId, CommandAuthorized: true,
                 ...(extractImageUrls(event.message).length > 0 && { MediaUrls: extractImageUrls(event.message) }),
                 ...(replyMsgId && { ReplyToId: replyMsgId, ReplyToBody: replyToBody, ReplyToSender: replyToSender }),
@@ -670,7 +671,9 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             await runtime.channel.session.recordInboundSession({
                 storePath: runtime.channel.session.resolveStorePath(cfg.session?.store, { agentId: route.agentId }),
                 sessionKey: ctxPayload.SessionKey!, ctx: ctxPayload,
-                updateLastRoute: { sessionKey: route.mainSessionKey, channel: "qq", to: fromId, accountId: route.accountId },
+                updateLastRoute: (!isGroup && !isGuild)
+                    ? { sessionKey: route.mainSessionKey, channel: "qq", to: fromId, accountId: route.accountId }
+                    : undefined,
                 onRecordError: (err) => console.error("QQ Session Error:", err)
             });
 
