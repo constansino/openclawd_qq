@@ -543,7 +543,14 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             const isAdmin = adminIds.includes(userId);
 
             if (config.adminOnlyChat && !isAdmin) {
-                if (!isGuild && text.trim().startsWith('/')) return;
+                if (config.notifyNonAdminBlocked) {
+                    const msg = (config.nonAdminBlockedMessage || "当前仅管理员可触发机器人。\n如需使用请联系管理员。").trim();
+                    if (msg) {
+                        if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${msg}`);
+                        else if (isGuild) client.sendGuildChannelMsg(guildId, channelId, msg);
+                        else client.sendPrivateMsg(userId, msg);
+                    }
+                }
                 return;
             }
 

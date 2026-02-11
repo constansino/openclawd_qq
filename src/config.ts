@@ -9,6 +9,8 @@ export const QQConfigSchema = z.object({
   enableDeduplication: z.boolean().optional().default(true).describe("Enable message deduplication to prevent double replies"),
   enableErrorNotify: z.boolean().optional().default(true).describe("Notify admins or users when errors occur"),
   adminOnlyChat: z.boolean().optional().default(false).describe("Only allow admin users to trigger normal chat replies"),
+  notifyNonAdminBlocked: z.boolean().optional().default(false).describe("Notify non-admin users when adminOnlyChat blocks a request"),
+  nonAdminBlockedMessage: z.string().optional().default("当前仅管理员可触发机器人。\n如需使用请联系管理员。"),
   autoApproveRequests: z.boolean().optional().default(false).describe("Automatically approve friend/group add requests"),
   maxMessageLength: z.number().optional().default(4000).describe("Maximum length of a single message before splitting"),
   formatMarkdown: z.boolean().optional().default(false).describe("Format markdown to plain text for better readability"),
