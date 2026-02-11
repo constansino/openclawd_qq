@@ -121,6 +121,27 @@ function normalizeTarget(raw: string): string {
 
 const clients = new Map<string, OneBotClient>();
 
+function normalizeNumericId(value: string | number | undefined | null): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!/^\d+$/.test(trimmed)) return null;
+        const parsed = Number.parseInt(trimmed, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+}
+
+function normalizeNumericIdList(values: Array<string | number> | undefined): number[] {
+    if (!Array.isArray(values)) return [];
+    const out: number[] = [];
+    for (const value of values) {
+        const parsed = normalizeNumericId(value);
+        if (parsed !== null) out.push(parsed);
+    }
+    return out;
+}
+
 function getClientForAccount(accountId: string) {
     return clients.get(accountId);
 }
@@ -376,6 +397,9 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
     startAccount: async (ctx) => {
         const { account, cfg } = ctx;
         const config = account.config;
+        const adminIds = normalizeNumericIdList(config.admins as Array<string | number> | undefined);
+        const allowedGroupIds = normalizeNumericIdList(config.allowedGroups as Array<string | number> | undefined);
+        const blockedUserIds = normalizeNumericIdList(config.blockedUsers as Array<string | number> | undefined);
 
         if (!config.wsUrl) throw new Error("QQ: wsUrl is required");
 
@@ -502,10 +526,10 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 if (resolvedText) text = resolvedText;
             }
             
-            if (config.blockedUsers?.includes(userId)) return;
-            if (isGroup && config.allowedGroups?.length && !config.allowedGroups.includes(groupId)) return;
+            if (blockedUserIds.includes(userId)) return;
+            if (isGroup && allowedGroupIds.length && !allowedGroupIds.includes(groupId)) return;
             
-            const isAdmin = config.admins?.includes(userId) ?? false;
+            const isAdmin = adminIds.includes(userId);
             if (!isGuild && isAdmin && text.trim().startsWith('/')) {
                 const parts = text.trim().split(/\s+/);
                 const cmd = parts[0];
