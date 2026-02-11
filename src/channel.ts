@@ -125,7 +125,7 @@ const blockedNotifyCache = new Map<string, number>();
 function normalizeNumericId(value: string | number | undefined | null): number | null {
     if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
     if (typeof value === "string") {
-        const trimmed = value.trim();
+        const trimmed = value.trim().replace(/^"|"$|^'|'$/g, "");
         if (!/^\d+$/.test(trimmed)) return null;
         const parsed = Number.parseInt(trimmed, 10);
         return Number.isFinite(parsed) ? parsed : null;

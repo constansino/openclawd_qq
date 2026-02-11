@@ -124,14 +124,14 @@ openclaw setup qq
 | :--- | :--- | :--- | :--- |
 | `wsUrl` | string | **必填** | OneBot v11 WebSocket 地址 |
 | `accessToken` | string | - | 连接鉴权 Token |
-| `admins` | string | `""` | **管理员 QQ 号列表（字符串）**。示例：`"1838552185,123456789"`。用于 `/status`, `/kick` 等管理员指令权限。 |
+| `admins` | string | `""` | **管理员 QQ 号列表（字符串）**。Web表单直接填：`1838552185,123456789`；Raw JSON 填：`"1838552185,123456789"`。用于 `/status`, `/kick` 等管理员指令权限。 |
 | `adminOnlyChat` | boolean | `false` | **仅管理员可触发聊天回复**。开启后，非管理员即使 @ 机器人也不会触发对话（适合防止 Token 被刷）。 |
 | `notifyNonAdminBlocked` | boolean | `false` | 当 `adminOnlyChat=true` 且被非管理员触发时，是否发送提示消息。 |
 | `nonAdminBlockedMessage` | string | `当前仅管理员可触发机器人。\n如需使用请联系管理员。` | 非管理员被拦截时的提示文案。 |
 | `blockedNotifyCooldownMs` | number | `10000` | 非管理员提示防抖（毫秒）。同一用户在同一会话内重复触发时，冷却期内不重复提示。 |
 | `requireMention` | boolean | `true` | **是否需要 @ 触发**。设为 `true` 仅在被 @ 或回复机器人时响应。 |
-| `allowedGroups` | string | `""` | **群组白名单（字符串）**。示例：`"883766069 123456789"`。若设置，Bot 仅在这些群组响应。 |
-| `blockedUsers` | string | `""` | **用户黑名单（字符串）**。示例：`"342571216"` 或 `"342571216,10002"`。Bot 将忽略这些用户消息。 |
+| `allowedGroups` | string | `""` | **群组白名单（字符串）**。Web表单填：`883766069 123456789`；Raw JSON 填：`"883766069 123456789"`。若设置，Bot 仅在这些群组响应。 |
+| `blockedUsers` | string | `""` | **用户黑名单（字符串）**。Web表单填：`342571216` 或 `342571216,10002`；Raw JSON 填：`"342571216"`。Bot 将忽略这些用户消息。 |
 | `systemPrompt` | string | - | **人设设定**。注入到 AI 上下文的系统提示词。 |
 | `historyLimit` | number | `0` | **历史消息条数**。默认依赖 OpenClaw 会话系统管理上下文；仅在你需要强制携带群内最近原文时才建议设为 `>0`。 |
 
@@ -139,7 +139,7 @@ openclaw setup qq
 > 仅当你明确希望每轮都附带“群内原始近几条消息”时，再开启 `historyLimit`（例如设为 `3~5`）。
 >
 > 安全建议：若你担心群内高频 @ 导致 Token 消耗过快，建议配置 `admins` 并开启 `adminOnlyChat = true`。
-| `keywordTriggers` | string | `""` | **关键词触发（字符串）**。示例：`"小助手, 帮我"`，支持逗号/空格/换行分隔。 |
+| `keywordTriggers` | string | `""` | **关键词触发（字符串）**。Web表单填：`小助手, 帮我`；Raw JSON 填：`"小助手, 帮我"`。支持逗号/空格/换行分隔。 |
 | `autoApproveRequests` | boolean | `false` | 是否自动通过好友申请和群邀请。 |
 | `enableGuilds` | boolean | `true` | 是否开启 QQ 频道 (Guild) 支持。 |
 | `enableTTS` | boolean | `false` | (实验性) 是否将 AI 回复转为语音发送 (需服务端支持 TTS)。 |
