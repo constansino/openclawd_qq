@@ -120,9 +120,29 @@ You can also edit config directly. Full config example:
     "entries": {
       "qq": { "enabled": true }
     }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
   }
 }
 ```
+
+### 4. Cross-Channel DM Session Isolation (Strongly Recommended)
+
+If you run multiple DM channels at the same time (for example Telegram + QQ + Feishu), enable this top-level OpenClaw setting:
+
+```json
+{
+  "session": {
+    "dmScope": "per-channel-peer"
+  }
+}
+```
+
+Why: with `dmScope=main` (default), direct chats can collapse into the main session key (`agent:main:main`), which may mix context across channels.
+This plugin also namespaces QQ private `fromId` as `qq:user:<id>` to further reduce cross-channel user-id collisions.
+
+> If you intentionally want cross-platform shared context, choose another scope. For strict isolation, prefer `per-channel-peer`.
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -133,6 +153,8 @@ You can also edit config directly. Full config example:
 | `notifyNonAdminBlocked` | boolean | `false` | When `adminOnlyChat=true` and a non-admin triggers, whether to send a rejection notice. |
 | `nonAdminBlockedMessage` | string | `Only admins can trigger this bot currently.\nPlease contact an administrator if you need access.` | Rejection message shown to blocked non-admin users. |
 | `blockedNotifyCooldownMs` | number | `10000` | Cooldown (ms) for non-admin rejection notices. Prevents repeated notices within the same session/user target. |
+| `enableEmptyReplyFallback` | boolean | `true` | Empty-reply fallback switch. If the model returns empty content, the bot sends a user-visible hint instead of appearing silent. |
+| `emptyReplyFallbackText` | string | `⚠️ 本轮模型返回空内容。请重试，或先执行 /newsession 后再试。` | Fallback text used when a model turn returns empty output. |
 | `showProcessingStatus` | boolean | `true` | Busy-status visualization (enabled by default). While processing, the bot temporarily appends ` (输入中)` to its group card. |
 | `processingStatusDelayMs` | number | `500` | Delay in milliseconds before applying the busy suffix. |
 | `processingStatusText` | string | `输入中` | Busy suffix text. Default is `输入中`. |
@@ -192,6 +214,7 @@ Only users listed in `admins` can use:
 * Group model command support (admin-only):
   * `@bot /models` directly triggers model listing (admin-only).
   * `@bot /model` and `@bot /model 28` are also admin-only in groups.
+  * `@bot /newsession` or `wakeword /newsession` resets the current session (admin-only).
 
 * `/status`
   * View bot runtime status (memory usage, connection status, self ID).

@@ -123,9 +123,29 @@ openclaw setup qq
     "entries": {
       "qq": { "enabled": true }
     }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
   }
 }
 ```
+
+### 4. 跨平台私聊会话隔离（强烈建议）
+
+当你同时接入多个私聊渠道（如 Telegram + QQ + Feishu）时，建议在 OpenClaw 顶层配置中启用：
+
+```json
+{
+  "session": {
+    "dmScope": "per-channel-peer"
+  }
+}
+```
+
+原因：OpenClaw 在 `dmScope=main`（默认）下会把 direct chat 汇聚到主会话键（`agent:main:main`），多渠道并行时可能出现上下文混用。
+本插件还对 QQ 私聊 `fromId` 增加了命名空间前缀（`qq:user:<id>`），可进一步避免不同渠道用户 ID 冲突。
+
+> 如果你需要“同一个人跨平台共享上下文”，可改为其他策略；若要严格隔离，优先 `per-channel-peer`。
 
 | 配置项 | 类型 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
@@ -136,6 +156,8 @@ openclaw setup qq
 | `notifyNonAdminBlocked` | boolean | `false` | 当 `adminOnlyChat=true` 且被非管理员触发时，是否发送提示消息。 |
 | `nonAdminBlockedMessage` | string | `当前仅管理员可触发机器人。\n如需使用请联系管理员。` | 非管理员被拦截时的提示文案。 |
 | `blockedNotifyCooldownMs` | number | `10000` | 非管理员提示防抖（毫秒）。同一用户在同一会话内重复触发时，冷却期内不重复提示。 |
+| `enableEmptyReplyFallback` | boolean | `true` | 空回复兜底开关。模型返回空内容时，自动发提示，避免看起来“机器人没反应”。 |
+| `emptyReplyFallbackText` | string | `⚠️ 本轮模型返回空内容。请重试，或先执行 /newsession 后再试。` | 空回复兜底提示文案。 |
 | `showProcessingStatus` | boolean | `true` | 忙碌状态可视化（默认开启）。处理中会把机器人群名片临时改为 `（输入中）` 后缀。 |
 | `processingStatusDelayMs` | number | `500` | 触发“输入中”后缀的延迟毫秒数。 |
 | `processingStatusText` | string | `输入中` | 忙碌后缀文本，默认 `输入中`。 |
@@ -194,6 +216,7 @@ openclaw setup qq
 *   群聊模型命令支持（仅管理员）：
     *   `@机器人 /models` 可直接触发模型列表（仅管理员）。
     *   `@机器人 /model`、`@机器人 /model 28` 也仅管理员可触发。
+    *   `@机器人 /newsession` 或 `唤醒词 /newsession` 可重置当前会话（仅管理员）。
 
 *   `/status`
     *   查看机器人运行状态（内存占用、连接状态、Self ID）。

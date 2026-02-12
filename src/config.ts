@@ -75,6 +75,8 @@ export const QQConfigSchema = z.object({
   notifyNonAdminBlocked: BooleanInputSchema(false).describe("启用管理员模式后，是否提示非管理员“无权限”。"),
   nonAdminBlockedMessage: z.preprocess((value) => normalizeLooseString(value), z.string().optional().default("当前仅管理员可触发机器人。\n如需使用请联系管理员。")).describe("非管理员被拦截时的提示文案。"),
   blockedNotifyCooldownMs: NumberInputSchema(10000).describe("非管理员拦截提示防抖时长（毫秒）。10秒可填 10000。"),
+  enableEmptyReplyFallback: BooleanInputSchema(true).describe("空回复兜底开关。开启后，若模型返回空内容，会自动给出提示，避免群里看起来像无响应。"),
+  emptyReplyFallbackText: z.preprocess((value) => normalizeLooseString(value), z.string().optional().default("⚠️ 本轮模型返回空内容。请重试，或先执行 /newsession 后再试。")).describe("空回复兜底文案。示例：⚠️ 本轮模型返回空内容，请 /newsession 后重试。"),
   showProcessingStatus: BooleanInputSchema(true).describe("忙碌状态可视化开关（默认开启）。开启后，机器人在群里处理任务时会临时把自己的群名片改成“(输入中)”后缀。"),
   processingStatusDelayMs: NumberInputSchema(500).describe("触发“输入中”群名片后缀的延迟（毫秒，默认 500）。"),
   processingStatusIntervalMs: NumberInputSchema(0).describe("保留字段（当前未使用）。"),

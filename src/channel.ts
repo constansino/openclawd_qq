@@ -181,6 +181,20 @@ function normalizeTarget(raw: string): string {
   return raw.replace(/^(qq:)/i, "");
 }
 
+async function resetSessionByKey(storePath: string, sessionKey: string): Promise<boolean> {
+    try {
+        const raw = await fs.readFile(storePath, "utf-8");
+        const store = JSON.parse(raw) as Record<string, unknown>;
+        if (!store || typeof store !== "object") return false;
+        if (!(sessionKey in store)) return false;
+        delete store[sessionKey];
+        await fs.writeFile(storePath, JSON.stringify(store, null, 2));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 const clients = new Map<string, OneBotClient>();
 const accountConfigs = new Map<string, QQConfig>();
 const blockedNotifyCache = new Map<string, number>();
@@ -932,6 +946,10 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 if (!isAdmin) return;
                 text = inlineCommand;
                 forceTriggered = true;
+            } else if (isGroup && /^\/newsession\b/i.test(inlineCommand)) {
+                if (!isAdmin) return;
+                text = "/newsession";
+                forceTriggered = true;
             }
 
             if (!isGuild && isAdmin && text.trim().startsWith('/')) {
@@ -945,6 +963,32 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                         else client.sendPrivateMsg(userId, chunk);
                         if (config.rateLimitMs > 0) await sleep(Math.min(config.rateLimitMs, 800));
                     }
+                    return;
+                }
+                if (cmd === '/newsession') {
+                    const runtimeForReset = getQQRuntime();
+                    const fromIdForReset = isGroup
+                        ? String(groupId)
+                        : isGuild
+                            ? `guild:${guildId}:${channelId}`
+                            : `qq:user:${userId}`;
+                    const routeForReset = runtimeForReset.channel.routing.resolveAgentRoute({
+                        cfg,
+                        channel: "qq",
+                        accountId: account.accountId,
+                        peer: {
+                            kind: isGuild ? "channel" : (isGroup ? "group" : "direct"),
+                            id: fromIdForReset,
+                        },
+                    });
+                    const storePath = runtimeForReset.channel.session.resolveStorePath(cfg.session?.store, { agentId: routeForReset.agentId });
+                    const resetOk = await resetSessionByKey(storePath, routeForReset.sessionKey);
+                    const notice = resetOk
+                        ? "✅ 当前会话已重置。请继续发送你的问题。"
+                        : "ℹ️ 当前会话本就为空，已为你准备新会话。";
+                    if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${notice}`);
+                    else if (isGuild) client.sendGuildChannelMsg(guildId, channelId, notice);
+                    else client.sendPrivateMsg(userId, notice);
                     return;
                 }
                 if (cmd === '/status') {
@@ -1097,10 +1141,10 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 return;
             }
 
-            let fromId = String(userId);
+            let fromId = `qq:user:${userId}`;
             let conversationLabel = `QQ User ${userId}`;
             if (isGroup) {
-                fromId = `group:${groupId}`;
+                fromId = String(groupId);
                 conversationLabel = `QQ Group ${groupId}`;
             } else if (isGuild) {
                 fromId = `guild:${guildId}:${channelId}`;
@@ -1117,6 +1161,8 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                     id: fromId,
                 },
             });
+
+            let deliveredAnything = false;
 
             const deliver = async (payload: ReplyPayload) => {
                  const send = async (msg: string) => {
@@ -1144,8 +1190,12 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                          if (chunks.length > 1 && config.rateLimitMs > 0) await sleep(config.rateLimitMs);
                      }
                  };
-                 if (payload.text) await send(payload.text);
+                 if (payload.text && payload.text.trim()) {
+                     deliveredAnything = true;
+                     await send(payload.text);
+                 }
                  if (payload.files) {
+                     if (payload.files.length > 0) deliveredAnything = true;
                      for (const f of payload.files) { 
                          if (f.url) { 
                              const url = await resolveMediaUrl(f.url);
@@ -1247,6 +1297,15 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             }
 
             try { await runtime.channel.reply.dispatchReplyFromConfig({ ctx: ctxPayload, cfg, dispatcher, replyOptions });
+                const shouldFallback = config.enableEmptyReplyFallback !== false && !text.trim().startsWith('/');
+                if (shouldFallback && !deliveredAnything) {
+                    const fallbackText = (config.emptyReplyFallbackText || "⚠️ 本轮模型返回空内容。请重试，或先执行 /newsession 后再试。").trim();
+                    if (fallbackText) {
+                        if (isGroup) client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] ${fallbackText}`);
+                        else if (isGuild) client.sendGuildChannelMsg(guildId, channelId, fallbackText);
+                        else client.sendPrivateMsg(userId, fallbackText);
+                    }
+                }
             } catch (error) { if (config.enableErrorNotify) deliver({ text: "⚠️ 服务调用失败，请稍后重试。" }); }
             finally {
                 clearProcessingTimers();
