@@ -189,6 +189,10 @@ Pay close attention to the combination of `requireMention` and `keywordTriggers`
 ### 👮‍♂️ Admin Commands
 Only users listed in `admins` can use:
 
+* Group model command support (admin-only):
+  * `@bot /models` is auto-mapped to `/model list`.
+  * `@bot /model` and `@bot /model 28` are also admin-only in groups.
+
 * `/status`
   * View bot runtime status (memory usage, connection status, self ID).
 * `/help`

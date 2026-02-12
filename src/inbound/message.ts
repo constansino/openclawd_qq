@@ -171,6 +171,26 @@ export async function handleQQInboundMessage(ctx: any): Promise<void> {
             
             const isAdmin = adminIds.includes(userId);
 
+            // feat: allow admin-only @bot /models in groups via /model list alias
+            const commandTextCandidate = Array.isArray(event.message)
+                ? event.message
+                    .filter((seg: any) => seg?.type === "text")
+                    .map((seg: any) => String(seg.data?.text || ""))
+                    .join(" ")
+                    .trim()
+                : text.trim();
+
+            let forceTriggered = false;
+            if (isGroup && /^\/models\b/i.test(commandTextCandidate)) {
+                if (!isAdmin) return;
+                text = commandTextCandidate.replace(/^\/models\b/i, "/model list").trim();
+                forceTriggered = true;
+            } else if (isGroup && /^\/model\b/i.test(commandTextCandidate)) {
+                if (!isAdmin) return;
+                text = commandTextCandidate;
+                forceTriggered = true;
+            }
+
             if (!isGuild && isAdmin && text.trim().startsWith('/')) {
                 const parts = text.trim().split(/\s+/);
                 const cmd = parts[0];
@@ -270,7 +290,7 @@ export async function handleQQInboundMessage(ctx: any): Promise<void> {
                  } catch (e) {}
             }
 
-            let isTriggered = !isGroup || text.includes("[动作] 用户戳了你一下");
+            let isTriggered = forceTriggered || !isGroup || text.includes("[动作] 用户戳了你一下");
             const keywordTriggers = parseKeywordTriggersInput(config.keywordTriggers as string | string[] | undefined);
             if (!isTriggered && keywordTriggers.length > 0) {
                 for (const kw of keywordTriggers) { if (text.includes(kw)) { isTriggered = true; break; } }

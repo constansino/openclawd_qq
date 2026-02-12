@@ -191,6 +191,10 @@ openclaw setup qq
 ### 👮‍♂️ 管理员指令
 仅配置在 `admins` 列表中的用户可用：
 
+*   群聊模型命令支持（仅管理员）：
+    *   `@机器人 /models` 会自动按 `/model list` 处理。
+    *   `@机器人 /model`、`@机器人 /model 28` 也仅管理员可触发。
+
 *   `/status`
     *   查看机器人运行状态（内存占用、连接状态、Self ID）。
 *   `/help`
