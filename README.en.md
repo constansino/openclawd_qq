@@ -192,6 +192,16 @@ This plugin also namespaces QQ private `fromId` as `qq:user:<id>` to further red
   * Send messages containing configured **keywords** (for example, `assistant`).
   * **Poke** the bot avatar.
 
+### 👥 Recommended: Create a 2-Person Test Group
+
+Strongly recommended: create a separate test group with only 2 members (you + the bot) for troubleshooting and status checks:
+
+- You can clearly observe whether the bot card suffix (for example `输入中`) appears and recovers correctly.
+- Less noise than a busy production group, so it is easier to distinguish "processing" vs "idle".
+- Validate new features first (`/newsession`, model switching, file/voice sending), then roll out to the main group.
+
+> Practical workflow: keep your main group for normal usage, and use the 2-person group for debugging/stress tests.
+
 ### 🧭 Trigger Rules Quick Reference (Important)
 
 Pay close attention to the combination of `requireMention` and `keywordTriggers`:
