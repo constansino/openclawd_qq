@@ -1,5 +1,4 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk";
 import type { OneBotClient } from "../client.js";
 import type { QQConfig } from "../config.js";
@@ -83,7 +82,11 @@ export function createQQOutbound(opts: {
       const imageLike = !audioLike && (sourceImageLike || isImageFile(finalUrl) || finalUrl.startsWith("base64://"));
 
       const stageAudioRecordIfNeeded = async (): Promise<string> => {
-        let recordFile = stagedAudioFile || finalUrl;
+        // Fix: If already staged (container path), return directly without restaging
+        if (stagedAudioFile) {
+          return stagedAudioFile;
+        }
+        let recordFile = finalUrl;
         // Fix: Only stage if it's a local path, not http(s) URL
         const localPath = toLocalPathIfAny(recordFile);
         if (!localPath) {

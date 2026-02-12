@@ -1,4 +1,5 @@
 import { getQQRuntime } from "../runtime.js";
+import { pathToFileURL } from "node:url";
 import { cleanCQCodes, extractImageUrls, getReplyMessageId } from "../cq/parser.js";
 import { materializeImageForVision, MAX_VISION_IMAGE_COUNT } from "../media/vision.js";
 import { isAudioFile, isImageFile, processAntiRisk, resolveInlineCqRecord, resolveMediaUrl, splitMessage, stripMarkdown } from "../media/outbound.js";
@@ -109,7 +110,7 @@ export async function handleQQInboundMessage(ctx: any): Promise<void> {
                                         ? info.url
                                         : (typeof info?.file === "string" ? info.file : undefined);
                                     if (resolved) {
-                                        imageUrl = resolved.startsWith("/") ? `file://${resolved}` : resolved;
+                                        imageUrl = resolved.startsWith("/") ? pathToFileURL(resolved).toString() : resolved;
                                         seg.data.url = imageUrl;
                                     }
                                 } catch (err) {

@@ -185,8 +185,8 @@ export async function resolveMediaUrl(url: string): Promise<string> {
         hostname === "c2cpicdw.qpic.cn" ||
         hostname === "puui.qpic.cn";
     } catch {
-      // Fallback to substring behavior if URL parsing fails
-      isQQHost = url.includes("qq.com") || url.includes("multimedia.nt.qq.com.cn");
+      // Fix: On URL parse failure, treat as non-QQ host and let downloadImageUrlAsBase64 handle it with SSRF protections
+      isQQHost = false;
     }
     if (!isQQHost) {
       const converted = await downloadImageUrlAsBase64(url);

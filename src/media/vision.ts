@@ -39,7 +39,9 @@ function isPathInSafeLocation(filePath: string): boolean {
   const resolvedPath = path.resolve(filePath);
   return SAFE_PATH_PREFIXES.some((prefix) => {
     const resolvedPrefix = path.resolve(prefix);
-    return resolvedPath.startsWith(resolvedPrefix);
+    // Fix: Use path-boundary check to prevent /tmp_evil matching /tmp
+    const relative = path.relative(resolvedPrefix, resolvedPath);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
   });
 }
 
@@ -82,36 +84,9 @@ function isPrivateUrl(url: string): boolean {
       return true;
     }
 
-    // 检查是否为纯 IP 地址（可能是内网）
-    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
-      return true;
-    }
-
     return false;
   } catch {
     return true; // 解析失败，保守起见认为是私有的
-  }
-}
-
-// 允许的 QQ 图片域名白名单
-const ALLOWED_IMAGE_HOSTS = [
-  "qq.com",
-  "multimedia.nt.qq.com.cn",
-  "gchat.qpic.cn",
-  "c2cpicdw.qpic.cn",
-  "puui.qpic.cn",
-  "inews.gtimg.com",
-];
-
-function isAllowedImageHost(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname.toLowerCase();
-    return ALLOWED_IMAGE_HOSTS.some(
-      (allowed) => hostname === allowed || hostname.endsWith(`.${allowed}`)
-    );
-  } catch {
-    return false;
   }
 }
 
