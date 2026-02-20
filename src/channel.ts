@@ -1077,8 +1077,6 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
     startAccount: async (ctx) => {
         const { account, cfg } = ctx;
         const config = account.config;
-        const accountGen = (accountStartGeneration.get(account.accountId) || 0) + 1;
-        accountStartGeneration.set(account.accountId, accountGen);
         accountConfigs.set(account.accountId, config);
         const adminIds = [...new Set(parseIdListInput(config.admins as string | number | Array<string | number> | undefined))];
         const allowedGroupIds = [...new Set(parseIdListInput(config.allowedGroups as string | number | Array<string | number> | undefined))];
@@ -1092,6 +1090,8 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             console.log(`[QQ] Existing live client detected for account ${account.accountId}; skip duplicate start`);
             return;
         }
+        const accountGen = (accountStartGeneration.get(account.accountId) || 0) + 1;
+        accountStartGeneration.set(account.accountId, accountGen);
 
         // 1. Prevent multiple clients for the same account
         const existingSet = allClientsByAccount.get(account.accountId);
