@@ -371,6 +371,11 @@ function markAndCheckRecentCommandDuplicate(key: string, ttlMs = 2500): boolean 
     return typeof lastTs === "number" && now - lastTs <= ttlMs;
 }
 
+function normalizeSlashVariants(input: string): string {
+    if (!input) return "";
+    return input.replace(/[／⁄∕]/g, "/");
+}
+
 function buildTempThreadKey(accountId: string, isGroup: boolean, isGuild: boolean, groupId?: number, guildId?: string, channelId?: string, userId?: number): string {
     if (isGroup && groupId !== undefined) return `${accountId}:group:${groupId}`;
     if (isGuild && guildId && channelId) return `${accountId}:guild:${guildId}:${channelId}`;
@@ -1082,6 +1087,12 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
 
         if (!config.wsUrl) throw new Error("QQ: wsUrl is required");
 
+        const existingLiveClient = clients.get(account.accountId);
+        if (existingLiveClient?.isConnected()) {
+            console.log(`[QQ] Existing live client detected for account ${account.accountId}; skip duplicate start`);
+            return;
+        }
+
         // 1. Prevent multiple clients for the same account
         const existingSet = allClientsByAccount.get(account.accountId);
         if (existingSet && existingSet.size > 0) {
@@ -1127,6 +1138,15 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
              } catch (err) { }
         });
 
+        client.on("heartbeat", () => {
+            if (isStaleGeneration()) return;
+            getQQRuntime().channel.activity.record({
+                channel: "qq",
+                accountId: account.accountId,
+                direction: "inbound",
+            });
+        });
+
         client.on("request", (event) => {
             if (isStaleGeneration()) return;
             if (config.autoApproveRequests) {
@@ -1138,6 +1158,11 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
         client.on("message", async (event) => {
           try {
             if (isStaleGeneration()) return;
+            getQQRuntime().channel.activity.record({
+                channel: "qq",
+                accountId: account.accountId,
+                direction: "inbound",
+            });
             if (event.post_type === "meta_event") {
                  if (event.meta_event_type === "lifecycle" && event.sub_type === "connect" && event.self_id) client.setSelfId(event.self_id);
                  return;
@@ -1284,16 +1309,23 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
             await ensureTempSessionSlotsLoaded();
             const threadSessionKey = buildTempThreadKey(account.accountId, isGroup, isGuild, groupId, guildId, channelId, userId);
             let activeTempSlot = getTempSessionSlot(threadSessionKey);
-            const commandTextCandidate = Array.isArray(event.message)
+            const extractedTextFromSegments = Array.isArray(event.message)
                 ? event.message
                     .filter((seg) => seg?.type === "text")
                     .map((seg) => String(seg.data?.text || ""))
                     .join(" ")
                     .trim()
-                : text.trim();
-
-            const slashIdx = commandTextCandidate.indexOf('/');
+                : "";
+            // Some OneBot variants may not emit text segments for plain messages.
+            // Fall back to already-normalized text to avoid losing slash commands.
+            const commandTextCandidate = normalizeSlashVariants(extractedTextFromSegments || text.trim());
+            const slashMatch = commandTextCandidate.match(/[\/]/);
+            const slashIdx = slashMatch ? slashMatch.index ?? -1 : -1;
             const inlineCommand = slashIdx >= 0 ? commandTextCandidate.slice(slashIdx).trim() : "";
+            if (inlineCommand) {
+                const shortInline = inlineCommand.replace(/\s+/g, " ").slice(0, 160);
+                console.log(`[QQCMD] inbound user=${userId} group=${groupId ?? "-"} admin=${isAdmin} cmd="${shortInline}"`);
+            }
             const normalizedCommandKey = inlineCommand
                 ? `${account.accountId}:${event.message_type ?? ""}:${String(groupId ?? "")}:${String(guildId ?? "")}:${String(channelId ?? "")}:${String(userId ?? "")}:${inlineCommand.replace(/\s+/g, " ").toLowerCase()}`
                 : "";
@@ -1317,17 +1349,25 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 forceTriggered = true;
             }
             else if (isGroup && /^\/(临时|tmp|退出临时|exittemp|临时状态|tmpstatus|临时列表|tmplist|临时结束|tmpend|临时重命名|tmprename)\b/i.test(inlineCommand)) {
-                if (!isAdmin) return;
+                if (!isAdmin) {
+                    console.warn(`[QQCMD] temp command denied: non-admin user=${userId} group=${groupId ?? "-"}`);
+                    if (config.notifyNonAdminBlocked) {
+                        client.sendGroupMsg(groupId, `[CQ:at,qq=${userId}] 当前仅管理员可使用临时会话命令。`);
+                    }
+                    return;
+                }
                 text = inlineCommand;
                 forceTriggered = true;
+                console.log(`[QQCMD] temp command accepted user=${userId} group=${groupId ?? "-"}`);
             }
             else if (isGroup && /^\/grok_draw\b/i.test(inlineCommand)) {
                 text = inlineCommand;
                 forceTriggered = true;
             }
 
-            if (!isGuild && isAdmin && text.trim().startsWith('/')) {
-                const parts = text.trim().split(/\s+/);
+            const normalizedTextForCommand = normalizeSlashVariants(text).trim();
+            if (!isGuild && isAdmin && normalizedTextForCommand.startsWith('/')) {
+                const parts = normalizedTextForCommand.split(/\s+/);
                 const cmd = parts[0];
                 const baseFromIdForCommand = isGroup
                     ? String(groupId)

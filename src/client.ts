@@ -28,6 +28,10 @@ export class OneBotClient extends EventEmitter {
     return this.selfId;
   }
 
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
   setSelfId(id: number) {
     this.selfId = id;
   }
@@ -52,10 +56,13 @@ export class OneBotClient extends EventEmitter {
 
         if (this.pendingMessages.length > 0) {
           const toFlush = this.pendingMessages.splice(0, this.pendingMessages.length);
+          let sent = 0;
           for (const item of toFlush) {
-            this.ws?.send(JSON.stringify({ action: item.action, params: item.params }));
+            if (this.safeSend(item.action, item.params)) {
+              sent += 1;
+            }
           }
-          console.log(`[QQ] Flushed ${toFlush.length} queued outbound message(s)`);
+          console.log(`[QQ] Flushed ${sent}/${toFlush.length} queued outbound message(s)`);
         }
         
         // Start heartbeat check
@@ -68,6 +75,7 @@ export class OneBotClient extends EventEmitter {
         try {
           const payload = JSON.parse(data.toString()) as OneBotEvent;
           if (payload.post_type === "meta_event" && payload.meta_event_type === "heartbeat") {
+            this.emit("heartbeat", payload);
             return;
           }
           this.emit("message", payload);
@@ -272,7 +280,7 @@ export class OneBotClient extends EventEmitter {
 
   private send(action: string, params: any) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ action, params }));
+      this.safeSend(action, params);
     } else {
       if (this.pendingMessages.length < 200) {
         this.pendingMessages.push({ action, params });
@@ -281,6 +289,33 @@ export class OneBotClient extends EventEmitter {
       if (!this.reconnectTimer) {
         this.scheduleReconnect();
       }
+    }
+  }
+
+  private safeSend(action: string, params: any): boolean {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    try {
+      this.ws.send(JSON.stringify({ action, params }), (err) => {
+        if (!err) return;
+        if (this.pendingMessages.length < 200) {
+          this.pendingMessages.unshift({ action, params });
+        }
+        console.warn(`[QQ] send failed; re-queued action=${action} queue=${this.pendingMessages.length}`);
+        if (!this.reconnectTimer) {
+          this.scheduleReconnect();
+        }
+      });
+      return true;
+    } catch {
+      if (this.pendingMessages.length < 200) {
+        this.pendingMessages.unshift({ action, params });
+      }
+      if (!this.reconnectTimer) {
+        this.scheduleReconnect();
+      }
+      return false;
     }
   }
 
