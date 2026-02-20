@@ -1163,6 +1163,16 @@ export const qqChannel: ChannelPlugin<ResolvedQQAccount> = {
                 accountId: account.accountId,
                 direction: "inbound",
             });
+            if (event.post_type === "message") {
+                const rawPreview = typeof event.raw_message === "string"
+                    ? event.raw_message.replace(/\s+/g, " ").slice(0, 160)
+                    : "";
+                if (rawPreview.includes("/") || rawPreview.includes("临时")) {
+                    console.log(
+                        `[QQEVT] inbound type=${event.message_type ?? "-"} group=${event.group_id ?? "-"} user=${event.user_id ?? "-"} msg="${rawPreview}"`
+                    );
+                }
+            }
             if (event.post_type === "meta_event") {
                  if (event.meta_event_type === "lifecycle" && event.sub_type === "connect" && event.self_id) client.setSelfId(event.self_id);
                  return;
